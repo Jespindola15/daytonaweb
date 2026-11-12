@@ -171,7 +171,7 @@ $('trace').onchange = (e) => { if (emu) emu.traceApis = e.target.checked; };
 
 const qs = new URLSearchParams(location.search);
 // Modo pruebas/local: ?manifest=URL de un JSON {"files":["DAYTONA.EXE","RES_USA.DLL",...]} relativo al JSON
-if (qs.get('manifest') || !qs.get('manual')) {
+if (qs.get('manifest') || !qs.get('manual')) try {
   const murl = new URL(qs.get('manifest') || '../game/manifest.json', location.href);
   statusEl.textContent = 'Descargando archivos del juego…'; const mr = await fetch(murl); if (!mr.ok) throw new Error('No se pudo obtener el manifiesto'); const man = await mr.json();
   const list = await Promise.all(man.files.map(async (rel) => { const r = await fetch(new URL(rel, murl)); if (!r.ok) throw new Error('Falta archivo: ' + rel + ' (' + r.status + ')'); return Object.assign(new File([await r.blob()], rel.split('/').pop()), { relPath: rel }); }));
@@ -180,6 +180,10 @@ if (qs.get('manifest') || !qs.get('manual')) {
   for (const k of [...files.keys()].sort((a, b) => /daytona\.exe$/i.test(b) - /daytona\.exe$/i.test(a))) if (/\.exe$/i.test(k)) { const o = document.createElement('option'); o.value = o.textContent = k; sel.appendChild(o); }
   $('start').disabled = false; statusEl.textContent = `${files.size} archivos cargados desde ${murl.pathname}`;
   if (qs.get('autostart') || !qs.get('manual')) $('start').click();
+} catch (e) {
+  // sin esto, un archivo faltante (404) dejaba la página sin imagen y sin explicación
+  setStatus('halted', `No se pudieron descargar los archivos del juego: ${e.message}. Usá "Elegir carpeta del juego" o revisá /game/manifest.json.`);
+  log(`[FATAL] ${e.message}`);
 }
 // Modo pruebas: ?load=ruta/A.EXE,ruta/DATA/B.BIN&base=ruta/&autostart=1 (archivos servidos por el mismo servidor local)
 if (qs.get('load')) {

@@ -1,0 +1,22 @@
+# Netlify: publicar la raíz del repositorio (la página usa ../src y ../game, que deben desplegarse junto con web/)
+[build]
+  publish = "."
+  command = ""
+
+# El link principal del sitio abre el emulador
+[[redirects]]
+  from = "/"
+  to = "/web/"
+  status = 302
+
+# Los .EXE/.DLL/.BIN se sirven como binarios, sin transformación y con caché larga
+[[headers]]
+  for = "/game/*"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=604800"
+[[headers]]
+  for = "/game/manifest.json"
+  [headers.values]
+    Content-Type = "application/json"
+    Cache-Control = "no-cache"
