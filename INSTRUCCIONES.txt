@@ -1,0 +1,12 @@
+DAYTONA USA — AUTOCARGA WEB (PROTOTIPO, NO CARRERA JUGABLE)
+
+El proyecto incluye los archivos del juego aportados para pruebas privadas.
+
+Para abrirlo por un enlace web hay que alojar el contenido de esta carpeta en un hosting estatico con autorizacion para distribuir los recursos originales.
+La URL inicial es /web/ (no el directorio raiz).
+
+No hay que seleccionar una ISO ni carpeta: el navegador descarga /game/manifest.json y los recursos automaticamente.
+
+LIMITACIONES: el menu funciona segun las pruebas anteriores, pero NO se ha validado una carrera ni rendimiento jugable, y NO existe multiplayer.
+
+Para prueba local se requiere servir la carpeta por HTTP; abrir el HTML como file:// no permite fetch.

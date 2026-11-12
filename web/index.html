@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>Daytona USA PC — prototipo Win32/x86 en el navegador</title>
+<style>
+  :root { --bg:#111317; --panel:#1b1e24; --ink:#e7e9ee; --dim:#9aa1ad; --acc:#ff5a36; --ok:#3ecf8e; --bad:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.4 system-ui, sans-serif; }
+  header { padding:12px 18px; border-bottom:1px solid #2a2e36; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; }
+  h1 small { color:var(--dim); font-weight:400; }
+  main { display:grid; grid-template-columns: 660px 1fr; gap:14px; padding:14px; }
+  @media (max-width: 1200px) { main { grid-template-columns: 1fr; } }
+  .panel { background:var(--panel); border-radius:8px; padding:10px; }
+  canvas { width:640px; height:480px; background:#000; image-rendering: pixelated; display:block; outline:none; }
+  canvas:focus { box-shadow: 0 0 0 2px var(--acc); }
+  button, label.btn { background:#2a2f38; color:var(--ink); border:1px solid #3a404c; border-radius:6px; padding:6px 10px; cursor:pointer; font:inherit; }
+  button:hover, label.btn:hover { border-color:var(--acc); }
+  button:disabled { opacity:.4; cursor:default; }
+  #status { font-family: ui-monospace, monospace; color:var(--dim); }
+  #status.halted { color:var(--bad); } #status.exited { color:var(--ok); }
+  pre#log { height: 560px; overflow:auto; margin:0; font:12px/1.35 ui-monospace, Consolas, monospace; white-space:pre-wrap; word-break:break-all; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  select { background:#2a2f38; color:var(--ink); border:1px solid #3a404c; border-radius:6px; padding:5px; }
+  .hint { color:var(--dim); font-size:12px; }
+  .HALT { color: var(--bad); } .EXIT { color: var(--ok); } .DDRAW, .DSOUND { color:#7cc4ff; } .IMPORT { color:#f5c26b; }
+  input[type=file] { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Daytona USA PC (1996) en Chrome <small>— prueba de carga automática, sin ISO manual</small></h1>
+  <label class="btn">📁 Elegir carpeta (modo manual)<input id="dir" type="file" webkitdirectory multiple></label>
+  <label class="btn">📄 o archivos sueltos<input id="files" type="file" multiple></label>
+  <select id="exe"></select>
+  <button id="start" disabled>▶ Iniciar</button>
+  <button id="pause" disabled>⏸ Pausa</button>
+  <button id="step" disabled>Paso ×1000</button>
+  <button id="save">💾 Guardar log</button>
+  <span id="status">Preparando descarga automática del juego…</span>
+</header>
+<main>
+  <section class="panel">
+    <canvas id="screen" width="640" height="480" tabindex="0"></canvas>
+    <div class="row">
+      <label><input type="checkbox" id="trace" checked> traza de APIs</label>
+      <label>ms de CPU por frame <select id="budget"><option>8</option><option selected>14</option><option>30</option><option>60</option></select></label>
+      <label>Reloj <select id="clock"><option value="virtual" selected>virtual (Pentium 90)</option><option value="real">real</option></select></label>
+      <span class="hint">Clic en el canvas para el teclado: Enter = Start, flechas = menú/dirección, X = acelerar, Z = frenar, F5–F8 = vistas.</span>
+    </div>
+    <div class="row hint" id="stats"></div>
+  </section>
+  <section class="panel"><pre id="log"></pre></section>
+</main>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
