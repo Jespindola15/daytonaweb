@@ -6,6 +6,7 @@ import {
   DLL_BASE, STACK_TOP, STACK_SIZE,
 } from './memory.js';
 import { CPU, CPUError } from './cpu.js';
+import { BlockCache } from './jit.js';
 import { VFS } from './vfs.js';
 import kernel32 from './win32/kernel32.js';
 import user32 from './win32/user32.js';
@@ -54,6 +55,8 @@ export class Emulator {
     // Reloj: 'virtual' = derivado de instrucciones ejecutadas (determinista; 90k instr/ms ~ Pentium 90),
     // 'real' = reloj de pared. Con un intérprete más lento que el hardware original, el virtual mantiene
     // las proporciones que el juego espera entre trabajo y tiempo (títulos, demos, timeouts).
+    this.jit = new BlockCache(this);
+    this.useJit = true; // false = intérprete puro (para comparar)
     this.clockMode = 'virtual';
     this.instrPerMs = 90000;
     this.timeOffset = 0;
@@ -297,6 +300,7 @@ export class Emulator {
       let n = 0;
       while (c.eip !== HOST_RETURN) {
         if (c.eip >= THUNK_BASE && c.eip < THUNK_END) this.dispatchThunk(c.eip);
+        else if (this.useJit) this.jit.get(c.eip)(c, c.r, this.mem);
         else c.step();
         if (++n > limit) throw new HaltSignal(`Callback ${hex(addr)} superó ${limit} instrucciones`, {});
       }
@@ -312,6 +316,24 @@ export class Emulator {
     this.yieldRequested = false;
     const start = c.icount;
     try {
+      // ruta rápida: JIT sin perfilado ni traza diferida
+      if (this.useJit && !this.profile && !(this.traceFrom && !this.traceStarted)) {
+        const map = this.jit.map, fast = this.jit.fast, jit = this.jit, mem = this.mem, r = c.r, end = start + maxInstr;
+        while (c.icount < end) {
+          const eip = c.eip;
+          if (eip >= THUNK_BASE && eip < THUNK_END) {
+            if (eip === HOST_RETURN) throw new ExitSignal(c.r[0]);
+            this.dispatchThunk(eip);
+            if (this.yieldRequested) return { status: 'yield' };
+            continue;
+          }
+          const fi = eip - 0x400000;
+          let fn = fi >= 0 && fi < 0x200000 ? fast[fi] : map.get(eip);
+          if (fn === undefined) fn = jit.get(eip);
+          fn(c, r, mem);
+        }
+        return { status: 'running' };
+      }
       while (c.icount - start < maxInstr) {
         const eip = c.eip;
         if (eip >= THUNK_BASE && eip < THUNK_END) {
@@ -319,9 +341,10 @@ export class Emulator {
           this.dispatchThunk(eip);
           if (this.yieldRequested) return { status: 'yield' };
         } else {
-          c.step();
-          if (this.profile && (c.icount & 255) === 0) this.profile.set(eip, (this.profile.get(eip) || 0) + 1);
-          if (this.traceFrom && c.icount === this.traceFrom) { this.traceApis = true; this.apiLogged = 0; this.log('TRACE', `traza de APIs activada en la instrucción ${c.icount}`); }
+          const i0 = c.icount;
+          if (this.useJit) this.jit.get(eip)(c, c.r, this.mem); else c.step();
+          if (this.profile) { const k = this.profile.get(eip) || 0; this.profile.set(eip, k + (c.icount - i0) / 256); }
+          if (this.traceFrom && c.icount >= this.traceFrom && !this.traceStarted) { this.traceStarted = true; this.traceApis = true; this.apiLogged = 0; this.log('TRACE', `traza de APIs activada en la instrucción ${c.icount}`); }
         }
       }
       return { status: 'running' };

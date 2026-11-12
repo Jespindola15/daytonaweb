@@ -37,13 +37,15 @@ export class Memory {
   r8(a) { a >>>= 0; if (a < 0x1000 || a >= this.size) throw new MemFault(a, 'lectura'); return this.u8[a]; }
   r16(a) { a >>>= 0; this.chk(a, 2, 'lectura'); return this.u8[a] | (this.u8[a + 1] << 8); }
   r32(a) { a >>>= 0; this.chk(a, 4, 'lectura'); return (this.u8[a] | (this.u8[a + 1] << 8) | (this.u8[a + 2] << 16) | (this.u8[a + 3] << 24)) >>> 0; }
-  w8(a, v) { a >>>= 0; if (a < 0x1000 || a >= this.size) throw new MemFault(a, 'escritura'); this.u8[a] = v; }
-  w16(a, v) { a >>>= 0; this.chk(a, 2, 'escritura'); this.u8[a] = v; this.u8[a + 1] = v >>> 8; }
-  w32(a, v) { a >>>= 0; this.chk(a, 4, 'escritura'); this.u8[a] = v; this.u8[a + 1] = v >>> 8; this.u8[a + 2] = v >>> 16; this.u8[a + 3] = v >>> 24; }
+  // Si la página contiene código ya compilado por el JIT, se invalidan sus bloques
+  cw(a, n) { const cp = this.codePages; if (!cp) return; for (let p = a >>> 12, e = (a + n - 1) >>> 12; p <= e; p++) if (cp[p]) this.onCodeWrite(p); }
+  w8(a, v) { a >>>= 0; if (a < 0x1000 || a >= this.size) throw new MemFault(a, 'escritura'); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; }
+  w16(a, v) { a >>>= 0; this.chk(a, 2, 'escritura'); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; this.u8[a + 1] = v >>> 8; }
+  w32(a, v) { a >>>= 0; this.chk(a, 4, 'escritura'); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; this.u8[a + 1] = v >>> 8; this.u8[a + 2] = v >>> 16; this.u8[a + 3] = v >>> 24; }
   f32(a) { a >>>= 0; this.chk(a, 4, 'lectura'); return this.dv.getFloat32(a, true); }
   f64(a) { a >>>= 0; this.chk(a, 8, 'lectura'); return this.dv.getFloat64(a, true); }
-  wf32(a, v) { a >>>= 0; this.chk(a, 4, 'escritura'); this.dv.setFloat32(a, v, true); }
-  wf64(a, v) { a >>>= 0; this.chk(a, 8, 'escritura'); this.dv.setFloat64(a, v, true); }
+  wf32(a, v) { a >>>= 0; this.chk(a, 4, 'escritura'); this.cw(a, 4); this.dv.setFloat32(a, v, true); }
+  wf64(a, v) { a >>>= 0; this.chk(a, 8, 'escritura'); this.cw(a, 8); this.dv.setFloat64(a, v, true); }
   cstr(a, max = 4096) {
     if (!a) return null;
     let s = '';
@@ -59,12 +61,13 @@ export class Memory {
   writeCStr(a, s, max = Infinity) {
     const n = Math.min(s.length, max - 1);
     for (let i = 0; i < n; i++) this.u8[a + i] = s.charCodeAt(i) & 0xff;
+    this.cw(a, n + 1);
     this.u8[a + n] = 0;
     return n;
   }
-  writeBytes(a, bytes) { this.chk(a, bytes.length, 'escritura'); this.u8.set(bytes, a); }
-  fill(a, v, n) { this.chk(a, n, 'escritura'); this.u8.fill(v, a, a + n); }
-  copy(dst, src, n) { this.chk(dst, n, 'escritura'); this.chk(src, n, 'lectura'); this.u8.copyWithin(dst, src, src + n); }
+  writeBytes(a, bytes) { this.chk(a, bytes.length, 'escritura'); this.cw(a, bytes.length); this.u8.set(bytes, a); }
+  fill(a, v, n) { this.chk(a, n, 'escritura'); this.cw(a, n); this.u8.fill(v, a, a + n); }
+  copy(dst, src, n) { this.chk(dst, n, 'escritura'); this.cw(dst, n); this.chk(src, n, 'lectura'); this.u8.copyWithin(dst, src, src + n); }
 
   // Asignador simple: bump + listas libres por tamaño exacto (alineado a 16)
   alloc(n, zero = true) {

@@ -1,15 +1,17 @@
-# Netlify: publicar la raíz del repositorio (la página usa ../src y ../game, que deben desplegarse junto con web/)
+# Netlify: se publica dist/ (index.html, web/, src/, game/) y la API de salas corre como Function.
 [build]
-  publish = "."
-  command = ""
+  command = "node tools/build-site.mjs"
+  publish = "dist"
 
-# El link principal del sitio abre el emulador
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [[redirects]]
   from = "/"
   to = "/web/"
   status = 302
 
-# Los .EXE/.DLL/.BIN se sirven como binarios, sin transformación y con caché larga
 [[headers]]
   for = "/game/*"
   [headers.values]
@@ -19,4 +21,12 @@
   for = "/game/manifest.json"
   [headers.values]
     Content-Type = "application/json"
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/src/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/web/*"
+  [headers.values]
     Cache-Control = "no-cache"

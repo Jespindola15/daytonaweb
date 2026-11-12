@@ -5,16 +5,16 @@ JavaScript dentro de la pestaña, e implementa en JS las APIs de Windows que imp
 WINMM, DDRAW, DSOUND). No arranca Windows, no usa Wine, no hay streaming y no hay nada recreado: el código
 de juego que corre es el del EXE.
 
-> **Estado (12/11/2026):** el `DAYTONA.EXE` original carga, muestra la demo de atracción, la pantalla de título y el
-> menú **Mode Select** original, que responde al teclado. Funciona en Node y en Chrome. **No se probó todavía una
-> carrera** y la velocidad es de ~6 fps del juego en Chrome (intérprete puro). Detalle y evidencia en `AVANCE_MENU.md`.
+> **Estado (12/11/2026):** el `DAYTONA.EXE` original llega al menú **Mode Select** y lo maneja con el teclado,
+> en Node y en Chrome. Con el recompilador JIT: menú a ~50 fps y demo 3D a ~12 fps en Chrome. Incluye front nuevo
+> (sólo el juego + ajustes) y un gestor de salas online (Netlify Functions + Blobs). **No se probó todavía una carrera.**
+> Detalles: `AVANCE_MENU.md` y `AVANCE_RENDIMIENTO_Y_SALAS.md`.
 
-### Ver el menú en Chrome (resumen)
+### Uso rápido
 
-1. Desde la carpeta que contiene `daytona-web/`: `python -m http.server 8137`
-2. Abrí `http://localhost:8137/daytona-web/web/`, **📁 Elegir carpeta del juego** (la que tiene `DAYTONA.EXE`) → **▶ Iniciar**.
-3. Esperá la demo (~30 s), hacé clic en el canvas y pulsá **Enter** (título) y **Enter** de nuevo (Mode Select).
-   Flechas = mover el cursor. Teclas del `.INI`: X acelera, Z frena, F5–F8 cambian la vista.
+- **Netlify:** hacé push; `netlify.toml` construye `dist/` y publica la API de salas en `/api/rooms`.
+- **En tu PC:** `node tools/dev-server.mjs` → `http://localhost:8137/` (sitio + salas en memoria).
+- Teclas: Enter = Start, flechas = dirección/menú, X = acelerar, Z = frenar, F5–F8 = cámaras, P = pausa.
 
 ## Cómo ejecutarlo (Windows, Mac o Linux)
 

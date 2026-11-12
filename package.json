@@ -1,0 +1,13 @@
+{
+  "name": "daytona-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node tools/dev-server.mjs 8137",
+    "build": "node tools/build-site.mjs",
+    "test": "node tests/rooms_test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.9"
+  }
+}

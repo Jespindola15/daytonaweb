@@ -2,58 +2,99 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
-<title>Daytona USA PC — prototipo Win32/x86 en el navegador</title>
-<style>
-  :root { --bg:#111317; --panel:#1b1e24; --ink:#e7e9ee; --dim:#9aa1ad; --acc:#ff5a36; --ok:#3ecf8e; --bad:#ff6b6b; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.4 system-ui, sans-serif; }
-  header { padding:12px 18px; border-bottom:1px solid #2a2e36; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
-  h1 { font-size:16px; margin:0; }
-  h1 small { color:var(--dim); font-weight:400; }
-  main { display:grid; grid-template-columns: 660px 1fr; gap:14px; padding:14px; }
-  @media (max-width: 1200px) { main { grid-template-columns: 1fr; } }
-  .panel { background:var(--panel); border-radius:8px; padding:10px; }
-  canvas { width:640px; height:480px; background:#000; image-rendering: pixelated; display:block; outline:none; }
-  canvas:focus { box-shadow: 0 0 0 2px var(--acc); }
-  button, label.btn { background:#2a2f38; color:var(--ink); border:1px solid #3a404c; border-radius:6px; padding:6px 10px; cursor:pointer; font:inherit; }
-  button:hover, label.btn:hover { border-color:var(--acc); }
-  button:disabled { opacity:.4; cursor:default; }
-  #status { font-family: ui-monospace, monospace; color:var(--dim); }
-  #status.halted { color:var(--bad); } #status.exited { color:var(--ok); }
-  pre#log { height: 560px; overflow:auto; margin:0; font:12px/1.35 ui-monospace, Consolas, monospace; white-space:pre-wrap; word-break:break-all; }
-  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
-  select { background:#2a2f38; color:var(--ink); border:1px solid #3a404c; border-radius:6px; padding:5px; }
-  .hint { color:var(--dim); font-size:12px; }
-  .HALT { color: var(--bad); } .EXIT { color: var(--ok); } .DDRAW, .DSOUND { color:#7cc4ff; } .IMPORT { color:#f5c26b; }
-  input[type=file] { display:none; }
-</style>
+<title>Daytona USA</title>
+<link rel="stylesheet" href="./app.css">
 </head>
 <body>
-<header>
-  <h1>Daytona USA PC (1996) en Chrome <small>— prueba de carga automática, sin ISO manual</small></h1>
-  <label class="btn">📁 Elegir carpeta (modo manual)<input id="dir" type="file" webkitdirectory multiple></label>
-  <label class="btn">📄 o archivos sueltos<input id="files" type="file" multiple></label>
-  <select id="exe"></select>
-  <button id="start" disabled>▶ Iniciar</button>
-  <button id="pause" disabled>⏸ Pausa</button>
-  <button id="step" disabled>Paso ×1000</button>
-  <button id="save">💾 Guardar log</button>
-  <span id="status">Preparando descarga automática del juego…</span>
-</header>
-<main>
-  <section class="panel">
-    <canvas id="screen" width="640" height="480" tabindex="0"></canvas>
-    <div class="row">
-      <label><input type="checkbox" id="trace" checked> traza de APIs</label>
-      <label>ms de CPU por frame <select id="budget"><option>8</option><option selected>14</option><option>30</option><option>60</option></select></label>
-      <label>Reloj <select id="clock"><option value="virtual" selected>virtual (Pentium 90)</option><option value="real">real</option></select></label>
-      <span class="hint">Clic en el canvas para el teclado: Enter = Start, flechas = menú/dirección, X = acelerar, Z = frenar, F5–F8 = vistas.</span>
-    </div>
-    <div class="row hint" id="stats"></div>
-  </section>
-  <section class="panel"><pre id="log"></pre></section>
+<main id="stage">
+  <canvas id="screen" width="640" height="480" tabindex="0" aria-label="Pantalla del juego"></canvas>
+  <div id="fps" hidden></div>
 </main>
+
+<!-- barra flotante (se oculta sola mientras jugás) -->
+<nav id="dock" aria-label="Controles">
+  <button id="btnPause" title="Pausa (P)" aria-label="Pausa">❚❚</button>
+  <button id="btnFull" title="Pantalla completa (F11)" aria-label="Pantalla completa">⛶</button>
+  <button id="btnRooms" title="Salas online" aria-label="Salas online">👥</button>
+  <button id="btnSettings" title="Ajustes" aria-label="Ajustes">⚙</button>
+</nav>
+
+<!-- pantalla de carga / errores -->
+<section id="loader" class="overlay">
+  <div class="card">
+    <h1>DAYTONA <span>USA</span></h1>
+    <p id="loadText">Preparando…</p>
+    <div class="bar"><i id="loadBar"></i></div>
+    <div id="loadActions" hidden>
+      <label class="btn primary">Elegir carpeta del juego<input id="dirPick" type="file" webkitdirectory multiple hidden></label>
+      <p class="hint">Elegí la carpeta que contiene <code>DAYTONA.EXE</code>. Los archivos se leen en tu equipo; no se suben a ningún lado.</p>
+    </div>
+  </div>
+</section>
+
+<!-- pausa / detención -->
+<section id="paused" class="overlay" hidden>
+  <div class="card"><h2 id="pauseTitle">Pausa</h2><p id="pauseText"></p>
+    <div class="row"><button class="btn primary" id="btnResume">Seguir</button><button class="btn" id="btnSaveLog2" hidden>Guardar log</button></div>
+  </div>
+</section>
+
+<!-- panel de ajustes -->
+<aside id="settings" class="drawer" hidden aria-label="Ajustes">
+  <header><h2>Ajustes</h2><button class="x" data-close="settings" aria-label="Cerrar">✕</button></header>
+  <div class="scroll">
+    <section>
+      <h3>Juego</h3>
+      <div class="row"><button class="btn" id="btnRestart">Reiniciar</button><label class="btn">Cargar otra carpeta<input id="dirPick2" type="file" webkitdirectory multiple hidden></label></div>
+    </section>
+    <section>
+      <h3>Video</h3>
+      <label class="field">Escalado
+        <select id="optScale"><option value="fit">Ajustar a la ventana</option><option value="int">Múltiplo entero (nítido)</option><option value="native">Tamaño original</option></select></label>
+      <label class="check"><input type="checkbox" id="optSmooth"> Suavizar píxeles</label>
+      <label class="check"><input type="checkbox" id="optFps"> Mostrar FPS</label>
+    </section>
+    <section>
+      <h3>Rendimiento</h3>
+      <label class="field">CPU por cuadro del navegador
+        <select id="optBudget"><option value="8">8 ms (más fluido el navegador)</option><option value="14">14 ms (equilibrado)</option><option value="24">24 ms (más rápido el juego)</option></select></label>
+      <label class="field">Reloj del juego
+        <select id="optClock"><option value="virtual">Virtual (ritmo de un Pentium 90, recomendado)</option><option value="real">Real</option></select></label>
+      <p class="hint" id="perfInfo"></p>
+    </section>
+    <section>
+      <h3>Controles</h3>
+      <table class="keys">
+        <tr><td><kbd>Enter</kbd></td><td>Start / confirmar</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Dirección</td></tr>
+        <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Cambios / menú</td></tr>
+        <tr><td><kbd>X</kbd></td><td>Acelerar</td></tr>
+        <tr><td><kbd>Z</kbd></td><td>Frenar</td></tr>
+        <tr><td><kbd>F5</kbd>–<kbd>F8</kbd></td><td>Cámaras</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Salir / volver</td></tr>
+        <tr><td><kbd>P</kbd></td><td>Pausa del emulador</td></tr>
+      </table>
+    </section>
+    <section>
+      <h3>Diagnóstico</h3>
+      <label class="check"><input type="checkbox" id="optLog"> Mostrar registro técnico</label>
+      <label class="check"><input type="checkbox" id="optTrace"> Trazar llamadas a Windows (más lento)</label>
+      <div class="row"><button class="btn" id="btnSaveLog">Guardar registro</button></div>
+      <pre id="log" hidden></pre>
+    </section>
+  </div>
+</aside>
+
+<!-- panel de salas online -->
+<aside id="rooms" class="drawer" hidden aria-label="Salas online">
+  <header><h2>Salas online</h2><button class="x" data-close="rooms" aria-label="Cerrar">✕</button></header>
+  <div class="scroll" id="roomsBody"></div>
+</aside>
+
+<div id="status" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="./main.js"></script>
 </body>
 </html>

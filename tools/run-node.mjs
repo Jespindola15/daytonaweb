@@ -31,6 +31,7 @@ const host = {
 const emu = new Emulator({ log, host });
 if (args.includes('--quiet-api')) emu.traceApis = false;
 if (opt('--trace-from')) { emu.traceApis = false; emu.traceFrom = Number(opt('--trace-from')); emu.maxApiLog = Number(opt('--trace-lines', 3000)); }
+if (args.includes('--no-jit')) emu.useJit = false;
 if (opt('--clock')) emu.clockMode = opt('--clock');
 if (opt('--mhz')) emu.instrPerMs = Number(opt('--mhz')) * 1000;
 if (args.includes('--profile')) emu.profile = new Map();
@@ -58,7 +59,7 @@ while (emu.cpu.icount < maxInstr) {
   if (emu.state.dd.dirty) { emu.state.dd.dirty = false; emu.scanout(); }
   if (opt('--every') && slices % Number(opt('--every')) === 0) {
     const d = emu.state.dd; const nz = lastFrame ? countNonBlack(lastFrame.rgba) : 0;
-    log(`[PROGRESO] instr=${emu.cpu.icount} frames_juego=${d.frames} pixeles_no_negros_en_pantalla=${nz} blts=${d.bltCount || 0} gdi=${JSON.stringify(emu.state.gdi?.stats || {})}`);
+    log(`[PROGRESO] t=${((Date.now() - t0) / 1000).toFixed(2)}s instr=${emu.cpu.icount} frames_juego=${d.frames} pixeles_no_negros_en_pantalla=${nz} blts=${d.bltCount || 0} gdi=${JSON.stringify(emu.state.gdi?.stats || {})}`);
     if (framePath && lastFrame && nz) fs.writeFileSync(framePath.replace(/\.png$/, `_${emu.cpu.icount}.png`), png(lastFrame.rgba, lastFrame.w, lastFrame.h));
   }
   if (res.status === 'halted' || res.status === 'exited') break;
@@ -75,6 +76,7 @@ if (emu.profile) {
     log(`[PROFILE]   ${k.toString(16)}..+ff ${(100 * n / tot).toFixed(1)}%  [${top}]`);
   }
 }
+log(`[RESUMEN] JIT: ${emu.useJit ? JSON.stringify(emu.jit.stats) : 'desactivado'}`);
 log(`[RESUMEN] estado=${res.status} instrucciones=${emu.cpu.icount} tiempo=${dt.toFixed(2)}s (${(emu.cpu.icount / dt / 1e6).toFixed(1)} MIPS) slices=${slices}`);
 log(`[RESUMEN] APIs llamadas (distintas=${emu.apiCounts.size}): ${[...emu.apiCounts].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}×${v}`).join(', ')}`);
 if (emu.state.keyQueries) log(`[RESUMEN] teclas consultadas por GetAsyncKeyState: ${[...emu.state.keyQueries].map(([k, n]) => '0x' + k.toString(16) + '×' + n).join(' ')}`);

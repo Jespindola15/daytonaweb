@@ -40,7 +40,11 @@ export class FPU {
   }
   toInt(v, bits) {
     if (!Number.isFinite(v)) return bits === 64 ? -(2 ** 63) : -(2 ** (bits - 1));
-    const r = this.round(v);
+    const rc = (this.cw >> 10) & 3;
+    let r;
+    if (rc === 3) r = Math.trunc(v);
+    else if (rc === 0) { r = Math.round(v); if (r - v === 0.5 && r % 2 !== 0) r -= 1; } // al par más cercano
+    else r = rc === 1 ? Math.floor(v) : Math.ceil(v);
     const lim = 2 ** (bits - 1);
     if (r >= lim || r < -lim) return -lim; // valor indefinido de enteros
     return r;

@@ -20,6 +20,7 @@ export class CPU {
     this.eip = 0;
     this.cf = 0; this.pf = 0; this.af = 0; this.zf = 0; this.sf = 0; this.of = 0; this.df = 0;
     this.fsBase = 0;
+    this.parity = PARITY;
     this.fpu = new FPU(this);
     this.icount = 0;
     this.trace = new Uint32Array(64); this.traceIdx = 0;
