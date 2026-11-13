@@ -67,6 +67,15 @@
       <label class="check"><input type="checkbox" id="optMute"> Silenciar (M)</label>
     </section>
     <section>
+      <h3>Mando / joystick</h3>
+      <label class="field">Modo
+        <select id="optPad"><option value="keys">Como teclado (dirección digital)</option><option value="analog">Analógico (volante del juego, dirección proporcional)</option></select></label>
+      <label class="field">Mando a usar
+        <select id="optPadIndex"><option value="auto">Automático</option><option value="0">Mando 1</option><option value="1">Mando 2</option><option value="2">Mando 3</option><option value="3">Mando 4</option></select></label>
+      <p class="hint" id="padInfo">Ningún mando detectado (apretá un botón del mando).</p>
+      <p class="hint">Stick/cruceta: dirección · RT o A: acelerar · LT, B o X: frenar · Start: Enter · Y: cámara. En modo analógico el teclado no maneja (sólo menús).</p>
+    </section>
+    <section>
       <h3>Rendimiento</h3>
       <label class="field">CPU por cuadro del navegador
         <select id="optBudget"><option value="8">8 ms (más fluido el navegador)</option><option value="14">14 ms (equilibrado)</option><option value="24">24 ms (más rápido el juego)</option></select></label>
@@ -106,7 +115,7 @@
 
 <!-- panel de salas online -->
 <aside id="rooms" class="drawer" hidden aria-label="Salas online">
-  <header><h2>Salas online</h2><button class="x" data-close="rooms" aria-label="Cerrar">✕</button></header>
+  <header><h2>Salas online (2 a 6 jugadores)</h2><button class="x" data-close="rooms" aria-label="Cerrar">✕</button></header>
   <div class="scroll" id="roomsBody"></div>
 </aside>
 

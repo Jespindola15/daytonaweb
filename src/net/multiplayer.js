@@ -97,40 +97,74 @@ export class SmoothedTrack {
   }
 }
 
-// El J2 larga desde el lugar del auto PUPPET_SLOT de la grilla (y ese auto pasa a representar al J1)
-export function swapStartWithPuppet(mem) {
-  const a0 = carAddr(0), aP = carAddr(PUPPET_SLOT);
-  for (const f of [FIELD.x, FIELD.y, FIELD.z, FIELD.yaw, FIELD.pitch, FIELD.roll, FIELD.travelDir, FIELD.segment]) {
-    const v0 = mem.r32(a0 + f), vP = mem.r32(aP + f);
-    mem.w32(a0 + f, vP); mem.w32(aP + f, v0);
-  }
+// Lugares de la grilla de cada jugador (índice de jugador 0..5 → auto de la grilla original cuyo lugar ocupa).
+// El jugador 0 usa el lugar del auto 0; los demás, los de los autos 38, 37, 36, 35 y 34.
+export const GRID_SLOTS = [0, 38, 37, 36, 35, 34];
+export const MAX_PLAYERS = GRID_SLOTS.length;
+// En la instancia del jugador `me`, qué auto representa al jugador `q`:
+//  · los demás jugadores q ≥ 1 ocupan su propio lugar GRID_SLOTS[q];
+//  · el jugador 0 (que en su instancia es el auto 0) ocupa el lugar que dejó libre `me`.
+export function slotFor(me, q) { return q === me ? 0 : q === 0 ? GRID_SLOTS[me] : GRID_SLOTS[q]; }
+// Campos que definen el lugar en la grilla (pose + segmento + avance en la carrera)
+const START_FIELDS = [FIELD.x, FIELD.y, FIELD.z, FIELD.yaw, FIELD.pitch, FIELD.roll, FIELD.travelDir, FIELD.segment, ...FIELD.progress];
+// El jugador `me` larga desde el lugar de GRID_SLOTS[me]; el auto de ese lugar pasa al lugar del auto 0
+export function swapStartForPlayer(mem, me) {
+  if (!me) return;
+  const a0 = carAddr(0), aP = carAddr(GRID_SLOTS[me]);
+  for (const f of START_FIELDS) { const v0 = mem.r32(a0 + f), vP = mem.r32(aP + f); mem.w32(a0 + f, vP); mem.w32(aP + f, v0); }
 }
+// compatibilidad (2 jugadores): el J2 larga desde el lugar del auto 38
+export function swapStartWithPuppet(mem) { swapStartForPlayer(mem, 1); }
 
-// Sesión de juego en red (transporte inyectado: BroadcastChannel en el navegador, canal en memoria en las pruebas)
+// Sesión de juego en red para 2 a 6 jugadores (transporte inyectado: BroadcastChannel entre pestañas, WebSocket
+// de la sala en Cloudflare, o un canal en memoria en las pruebas).
+//  · playerIndex: 0..5, el lugar del jugador en la sala (define su lugar en la grilla y en qué auto lo ven los demás).
+//  · Cada mensaje 'state' lleva id estable, índice, número de secuencia, hora del cuadro y pose cruda.
+//  · Por cada otro jugador hay un búfer propio (orden, interpolación, suavizado) y un auto propio en el juego.
+//  · Relojes de computadoras distintas: el desfase se estima por jugador con el mínimo de (llegada − hora de envío).
 export class CarSync {
-  constructor({ emu, transport, playerId, slotRole, now = () => Date.now(), log = () => {} }) {
-    Object.assign(this, { emu, transport, playerId, role: slotRole, now, log });
-    this.seq = 0; this.track = new RemoteTrack(); this.remoteId = null;
-    this.lastSend = 0; this.status = 'esperando'; this.remoteRace = null; this.sent = 0;
-    // cada pose se marca con el instante del cuadro del juego que la produjo (no con el del envío)
+  constructor({ emu, transport, playerId, playerIndex, slotRole, now = () => Date.now(), log = () => {} }) {
+    const me = playerIndex ?? (slotRole ? slotRole - 1 : 0);
+    Object.assign(this, { emu, transport, playerId, me, role: me + 1, now, log });
+    this.seq = 0; this.lastSend = 0; this.sent = 0; this.peers = new Map();
     this.frameTime = 0; this.frameSeq = 0; this.sentFrame = -1;
     // la pose se toma en el mismo instante en que el juego presenta el cuadro: así pose y marca de tiempo
     // corresponden exactamente (si se leyera más tarde podría incluir ticks del cuadro siguiente, aún no mostrado)
     this.framePose = null;
     emu.onPresent = () => { this.frameTime = this.now(); this.framePose = captureLocal(emu.mem); this.frameSeq++; };
     this.remote = new RemoteCars(emu);
-    this.active = false;
-    // la pose se calcula cuando el juego la necesita (cada tick de lógica y cada render)
-    this.smooth = new SmoothedTrack(this.track);
-    this.poseNow = () => this.smooth.sample(this.now() - INTERP_DELAY_MS);
+  }
+  peer(msg) {
+    let p = this.peers.get(msg.id);
+    if (!p) {
+      const q = msg.idx ?? (msg.role ? msg.role - 1 : 1);
+      if (q === this.me || q < 0 || q >= MAX_PLAYERS || [...this.peers.values()].some((o) => o.index === q)) return null;
+      const track = new RemoteTrack(), smooth = new SmoothedTrack(track);
+      p = { id: msg.id, index: q, slot: slotFor(this.me, q), track, smooth, active: false, status: 'esperando', race: null, offsets: [] };
+      // desfase de reloj (+ latencia mínima): mínimo de (llegada − envío) de los últimos ~5 s. Cambia de a poco
+      // (como mucho 5 % del tiempo transcurrido) para que la línea de tiempo del otro auto nunca salte.
+      p.offS = null; p.offT = 0;
+      p.offset = () => {
+        const target = Math.min(...p.offsets), t = this.now();
+        if (p.offS === null) p.offS = target;
+        else { const lim = Math.max(0, t - p.offT) * 0.05; p.offS += Math.max(-lim, Math.min(lim, target - p.offS)); }
+        p.offT = t; return p.offS;
+      };
+      p.poseNow = () => p.smooth.sample(this.now() - p.offset() - INTERP_DELAY_MS);
+      this.peers.set(msg.id, p);
+      this.log(`[MP] jugador ${q + 1} (${msg.id}) → auto ${p.slot} en este juego`);
+    }
+    return p;
   }
   onMessage(msg) {
     if (msg.type !== 'state' || msg.id === this.playerId) return;
-    if (this.remoteId && msg.id !== this.remoteId) return; // identidad estable: sólo el compañero de sesión
-    this.remoteId = msg.id;
-    this.track.push(msg, this.now());
-    this.remoteRace = { lap: msg.pose.lap, rank: msg.pose.rank, kmh: msg.pose.kmh, seg: msg.pose.seg };
+    const p = this.peer(msg); if (!p) return;
+    const arr = this.now();
+    if (p.track.push(msg, arr)) { p.offsets.push(arr - msg.t); if (p.offsets.length > 100) p.offsets.shift(); }
+    p.race = { lap: msg.pose.lap, rank: msg.pose.rank, kmh: msg.pose.kmh, seg: msg.pose.seg };
   }
+  // quitar a un jugador que salió de la sala (su auto vuelve a la IA)
+  drop(id) { const p = this.peers.get(id); if (!p) return; if (p.active) this.remote.release(p.slot); this.peers.delete(id); }
   // llamar seguido (cada cuadro del navegador o del juego)
   tick() {
     const t = this.now(), mem = this.emu.mem;
@@ -138,18 +172,26 @@ export class CarSync {
     const fresh = this.frameSeq !== this.sentFrame;
     if ((fresh && t - this.lastSend >= 1000 / SEND_HZ - 1) || t - this.lastSend >= 500) {
       this.lastSend = t; this.sentFrame = this.frameSeq;
-      this.transport.send({ type: 'state', id: this.playerId, role: this.role, seq: ++this.seq, t: this.framePose ? this.frameTime : t, pose: this.framePose || captureLocal(mem) });
+      this.transport.send({ type: 'state', id: this.playerId, idx: this.me, role: this.role, seq: ++this.seq, t: this.framePose ? this.frameTime : t, pose: this.framePose || captureLocal(mem) });
       this.sent++;
     }
-    const age = this.track.lastArrival ? t - this.track.lastArrival : Infinity;
-    if (age > DISCONNECT_MS) {
-      if (this.active) { this.remote.release(PUPPET_SLOT); this.active = false; this.smooth.reset(); this.log('[MP] el otro jugador se desconectó: su auto vuelve a la IA'); }
-      this.status = this.track.received ? 'desconectado' : 'esperando';
-      return;
+    for (const p of this.peers.values()) {
+      const age = p.track.lastArrival ? t - p.track.lastArrival : Infinity;
+      if (age > DISCONNECT_MS) {
+        if (p.active) { this.remote.release(p.slot); p.active = false; p.smooth.reset(); this.log(`[MP] el jugador ${p.index + 1} se desconectó: su auto vuelve a la IA`); }
+        p.status = p.track.received ? 'desconectado' : 'esperando';
+        continue;
+      }
+      p.status = age > STALE_MS ? 'sin señal' : 'conectado';
+      if (!p.active && p.track.buf.length) { this.remote.set(p.slot, p.poseNow); p.active = true; }
     }
-    this.status = age > STALE_MS ? 'sin señal' : 'conectado';
-    if (!this.active && this.track.buf.length) { this.remote.set(PUPPET_SLOT, this.poseNow); this.active = true; }
   }
+  // ---- compatibilidad con la versión de 2 jugadores (primer compañero) ----
+  get first() { return this.peers.values().next().value || null; }
+  get track() { return this.first?.track || (this._emptyTrack ||= new RemoteTrack()); }
+  get status() { const ps = [...this.peers.values()]; if (!ps.length) return 'esperando'; for (const s of ['conectado', 'sin señal', 'desconectado']) if (ps.some((p) => p.status === s)) return s; return ps[0].status; }
+  get remoteRace() { return this.first?.race || null; }
+  get active() { return [...this.peers.values()].some((p) => p.active); }
   get applied() { return this.active; }
-  stop() { this.remote.dispose(); this.active = false; }
+  stop() { this.remote.dispose(); for (const p of this.peers.values()) p.active = false; }
 }

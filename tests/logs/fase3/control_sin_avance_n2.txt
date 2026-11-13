@@ -1,0 +1,11 @@
+Arrancando 2 instancias de DAYTONA.EXE…
+OK  0. grilla: en las N instancias cada jugador ocupa su lugar y los demás lo ven ahí  (2 jugadores; en J1: J1→auto 0, J2→auto 38; J1 en 103.8,150.5)
+[MP] jugador 1 (jugador-1) → auto 38 en este juego
+[MP] jugador 2 (jugador-2) → auto 38 en este juego
+OK  1. cada instancia ve a los otros 1 jugadores donde realmente están  (1194 mediciones; mediana 1.22, p95 2.81 unidades; 29/680 paquetes perdidos; relojes desfasados hasta 3700 ms)
+ERR 2. clasificación: en cada pantalla el orden entre jugadores es el real  (520/1040 comparaciones; diferencia máx. entre el puesto que muestra cada juego y el propio: 39 — los 34+ autos de la IA no son los mismos en cada instancia)
+OK  3. vueltas: cada instancia ve la vuelta real de cada jugador  (J1 v0 p40 · J2 v0 p33)
+OK  4. todas las instancias conectadas con los 1 restantes
+[MP] el jugador 2 se desconectó: su auto vuelve a la IA
+OK  5. J2 se va: los demás siguen conectados entre sí y su auto vuelve a la IA
+RESULTADO 5/6

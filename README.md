@@ -10,6 +10,12 @@ de juego que corre es el del EXE.
 > (sólo el juego + ajustes) y un gestor de salas online (Netlify Functions + Blobs). **No se probó todavía una carrera.**
 > Detalles: `AVANCE_MENU.md` y `AVANCE_RENDIMIENTO_Y_SALAS.md`.
 
+### Online (Fase 3): salas en Cloudflare, 2 a 6 jugadores, joystick
+
+Botón 👥 → crear sala o entrar. El anfitrión larga y todos corren la misma carrera, cada uno con su copia del juego.
+Publicación de las salas: [`cloudflare/README.md`](cloudflare/README.md). Mandos: Ajustes → Mando / joystick
+(modo analógico = volante del juego, dirección proporcional). Detalles y pruebas: [`FASE_3_ONLINE.md`](FASE_3_ONLINE.md).
+
 ### Multijugador local (Fase 2)
 
 Dos ventanas del navegador, botón **2P**: una crea la sesión y la otra se une; J1 larga la carrera. Detalles, pruebas y limitaciones en [`FASE_2_MULTIJUGADOR.md`](FASE_2_MULTIJUGADOR.md).

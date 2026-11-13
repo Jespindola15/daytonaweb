@@ -71,46 +71,39 @@ const sync = (p) => p.evaluate(() => { const s = window.__mplocal.state.sync; re
 
 // ---- 1. independientes ----
 {
-  const a = await car(A), b = await car(B), a5 = await car(A, 5), b5 = await car(B, 5);
-  check('1. dos instancias independientes (cada página su propio juego y su propio auto)', Math.hypot(a.x - b.x, a.z - b.z) > 1 && (a5.x !== b5.x || a5.z !== b5.z), `(J1 en ${a.x.toFixed(1)},${a.z.toFixed(1)} · J2 en ${b.x.toFixed(1)},${b.z.toFixed(1)})`);
+  const a = await car(A), b = await car(B), ia = (await stats(A)).icount, ib = (await stats(B)).icount;
+  const sameEmu = await A.evaluate(() => typeof window.__emu === 'function') && await B.evaluate(() => typeof window.__emu === 'function');
+  check('1. dos instancias independientes (cada página su propio emulador, su propio juego y su propio auto)', sameEmu && Math.hypot(a.x - b.x, a.z - b.z) > 1 && ia !== ib, `(J1 en ${a.x.toFixed(1)},${a.z.toFixed(1)} · J2 en ${b.x.toFixed(1)},${b.z.toFixed(1)}; instrucciones x86 ejecutadas: ${(ia / 1e9).toFixed(2)} / ${(ib / 1e9).toFixed(2)} mil millones)`);
 }
 
 // ---- 2. controles con teclado real (eventos de teclado de Chrome en cada página) ----
 // Acelerar y frenar: teclas X/Z reales de Chrome; mientras tanto el piloto automático sólo mantiene la dirección
 // (si no, el auto se va contra el muro y la prueba de aceleración no mide nada). Girar: ←/→ reales con el piloto en pausa.
-async function drive(p, name) {
-  const dyaw = (u, v) => ((v - u + 540) % 360) - 180;
-  await p.evaluate(async () => {
-    const { Autopilot } = await import('/src/game/autopilot.js');
-    const ap = new Autopilot(window.__emu(), { skipSlots: [38] }); ap.mode = 'steer';
-    window.__ap = ap; window.__apT = setInterval(() => ap.step(), 50);
-  });
-  await p.keyboard.down('x'); await p.waitForTimeout(1500); await p.keyboard.up('x');
-  const sz = await car(p);
-  await p.keyboard.down('z'); await p.waitForTimeout(3000); await p.keyboard.up('z');           // frena
-  const s1 = await car(p);
-  await p.keyboard.down('x'); await p.waitForTimeout(5000);                                       // acelera
-  const s2 = await car(p);
-  await p.evaluate(() => { window.__ap.mode = 'idle'; window.__ap.step(); });                    // dirección manual
-  const s2b = await car(p);
-  await p.keyboard.down('ArrowLeft'); await p.waitForTimeout(700); await p.keyboard.up('ArrowLeft');
-  const s3 = await car(p);
-  await p.keyboard.down('ArrowRight'); await p.waitForTimeout(700); await p.keyboard.up('ArrowRight');
-  const s4 = await car(p);
-  await p.keyboard.up('x');
-  await p.evaluate(() => { clearInterval(window.__apT); });
-  log(`${name}: ${sz.speedKmh} → ${s1.speedKmh} km/h con Z; ${s1.speedKmh} → ${s2.speedKmh} km/h con X; rumbo ${dyaw(s2b.yaw, s3.yaw).toFixed(1)}° con ←, ${dyaw(s3.yaw, s4.yaw).toFixed(1)}° con →`);
-  return { sz, s1, s2, left: dyaw(s2b.yaw, s3.yaw), right: dyaw(s3.yaw, s4.yaw) };
+// Controles: con teclas reales de Chrome en UNA página, se leen las entradas que registra el juego del auto 0 en las
+// DOS páginas (+0x68 acelerador, +0x80 freno 0..255, +0xA8 volante): la que recibe la tecla la registra, la otra no.
+// También se informa la velocidad (orientativa: un auto de la IA que choca de atrás modifica la medición).
+const inputs = (p) => p.evaluate(() => { const m = window.__emu().mem, a = 0x11b7ad4; return { acc: m.r32(a + 0x68) | 0, brk: m.r32(a + 0x80) | 0, steer: m.r32(a + 0xa8) | 0, kmh: m.r32(a + 4) | 0 }; });
+async function drive(p, other, name) {
+  const r = {};
+  const hold = async (key, ms) => { await p.keyboard.down(key); await p.waitForTimeout(ms); const mine = await inputs(p), theirs = await inputs(other); await p.keyboard.up(key); await p.waitForTimeout(250); return { mine, theirs, after: await inputs(p) }; };
+  const s0 = await inputs(p);
+  r.X = await hold('x', 1200); r.Z = await hold('z', 1200); r.L = await hold('ArrowLeft', 500); r.R = await hold('ArrowRight', 500);
+  log(`${name}: X → acelerador ${r.X.mine.acc} (otra página ${r.X.theirs.acc}), ${s0.kmh}→${r.X.mine.kmh} km/h · Z → freno ${r.Z.mine.brk} (otra ${r.Z.theirs.brk}), →${r.Z.mine.kmh} km/h · ← volante ${r.L.mine.steer} (otra ${r.L.theirs.steer}) · → volante ${r.R.mine.steer} (otra ${r.R.theirs.steer}) · al soltar: ${r.R.after.acc}/${r.R.after.brk}/${r.R.after.steer}`);
+  r.ok = r.X.mine.acc === 1 && r.Z.mine.brk > 200 && r.L.mine.steer < -20 && r.R.mine.steer > 20 && r.R.after.acc === 0 && r.R.after.brk === 0;
+  r.alone = r.X.theirs.acc === 0 && r.Z.theirs.brk === 0 && Math.abs(r.L.theirs.steer) < 20 && Math.abs(r.R.theirs.steer) < 20;
+  return r;
 }
 // la largada es lanzada («rolling start»): ~10 s en los que el juego conduce los autos. Se espera a que empiece
 // la carrera propiamente dicha (la IA de los rivales empieza a correr: 0x4481B0)
 for (const p of [A, B]) await waitFor(p, () => window.__mplocal.state.sync?.remote.stats.aiRuns > 0, null, 30000, 'fin de la largada lanzada');
 log('terminó la largada lanzada en las dos páginas: control manual');
-// los dos a la vez: cada página recibe sólo sus propias teclas
-const [dA, dB] = await Promise.all([drive(A, 'J1 (página A)'), drive(B, 'J2 (página B)')]);
-const okDrive = (d) => d.sz.speedKmh - d.s1.speedKmh > 40 && d.s2.speedKmh - d.s1.speedKmh > 40 && d.left > 2 && d.right < -2;
-check('2a. J1 frena (Z), acelera (X) y gira a los dos lados (←/→) con el teclado', okDrive(dA));
-check('2b. J2 frena (Z), acelera (X) y gira a los dos lados (←/→) con el teclado', okDrive(dB));
+// la otra página queda sin tocar teclas mientras se prueba una
+for (const p of [A, B]) await p.evaluate(() => { clearInterval(window.__apT); });
+const dA = await drive(A, B, 'J1 (página A)');
+const dB = await drive(B, A, 'J2 (página B)');
+check('2a. J1: el juego de J1 registra acelerador, freno y volante (←/→) de su teclado', dA.ok);
+check('2b. J2: el juego de J2 registra acelerador, freno y volante (←/→) de su teclado', dB.ok);
+check('2c. las teclas de una página no llegan al juego de la otra', dA.alone && dB.alone);
 
 // ---- 3/4. verse mutuamente: piloto automático (mismas teclas del juego) + persecución regulada ----
 for (const p of [A, B]) await p.evaluate(async () => {
@@ -120,17 +113,21 @@ for (const p of [A, B]) await p.evaluate(async () => {
 });
 const rel = (v, o) => { const h = v.yaw * Math.PI / 180, fx = -Math.sin(h), fz = Math.cos(h); const dx = o.x - v.x, dz = o.z - v.z; return { ahead: dx * fx + dz * fz, side: dx * fz - dz * fx }; };
 const setMax = (p, k) => p.evaluate((k) => { window.__ap.maxKmh = k; }, k);
-const shots = {}; const errsPos = [];
+const shots = {}; const errsPos = []; const rankSamples = [];
 async function chase(viewer, other, vName, oName, ms) {
   const t = Date.now(); const taken = []; let lastShot = 0;
   while (Date.now() - t < ms) {
     const v = await car(viewer), pup = await car(viewer, 38), real = await car(other);
+    // muestra de clasificación: puestos que muestra cada juego y avance real de cada auto (contadores de sección)
+    const prog = (p) => p.evaluate(() => { const m = window.__emu().mem; return (m.r32(0x11b7ad4 + 0x218) | 0) * 1000 + (m.r32(0x11b7ad4 + 0x1f0) | 0); });  // vuelta y sección
+    rankSamples.push({ vMe: v.position, vOther: pup.position, oMe: real.position, oOther: (await car(other, 38)).position, pv: await prog(viewer), po: await prog(other) });
     errsPos.push(Math.hypot(pup.x - real.x, pup.z - real.z));
     const q = rel(v, pup);
     // el que mira acelera si el otro está lejos adelante; frena si lo pasó
-    if (q.ahead > 18) { await setMax(viewer, 300); await setMax(other, 170); }
-    else if (q.ahead < 8) { await setMax(viewer, 160); await setMax(other, 300); }
-    else { await setMax(viewer, 240); await setMax(other, 235); }
+    // (velocidades altas: el juego tiene tiempo límite por tramo; si alguien anda muy lento, termina la partida)
+    if (q.ahead > 18) { await setMax(viewer, 320); await setMax(other, 240); }
+    else if (q.ahead < 8) { await setMax(viewer, 230); await setMax(other, 320); }
+    else { await setMax(viewer, 270); await setMax(other, 265); }
     // la cámara va detrás del auto: a ~10 unidades el otro auto se ve justo por encima del propio; a 25 ya es chico
     if (q.ahead > 7 && q.ahead < 16 && Math.abs(q.side) < q.ahead * 0.4 && pup.speedKmh > 60 && Date.now() - lastShot > 2500) {
       const k = taken.length + 1;
@@ -147,10 +144,10 @@ async function chase(viewer, other, vName, oName, ms) {
 }
 // el puppet tiene que moverse en la pantalla del que mira
 async function puppetMoves(viewer) { const a = await car(viewer, 38); await viewer.waitForTimeout(1000); const b = await car(viewer, 38); return Math.hypot(b.x - a.x, b.z - a.z); }
-const s1 = await chase(A, B, 'J1', 'J2', 100000);
+const s1 = await chase(A, B, 'J1', 'J2', 70000);
 check('4. J2 aparece delante en la pantalla de J1', !!s1, s1 ? `(${s1.q.ahead.toFixed(0)} unidades adelante, ${s1.pup.speedKmh} km/h; captura ${path.basename(s1.f)})` : '');
 const m1 = await puppetMoves(A);
-const s2 = await chase(B, A, 'J2', 'J1', 100000);
+const s2 = await chase(B, A, 'J2', 'J1', 70000);
 check('3. J1 aparece delante en la pantalla de J2', !!s2, s2 ? `(${s2.q.ahead.toFixed(0)} unidades adelante, ${s2.pup.speedKmh} km/h; captura ${path.basename(s2.f)})` : '');
 const m2 = await puppetMoves(B);
 check('3/4b. el auto del otro se mueve en cada pantalla', m1 > 20 && m2 > 20, `(en 1 s: J2 visto por J1 avanzó ${m1.toFixed(0)} unidades; J1 visto por J2 ${m2.toFixed(0)})`);
@@ -164,6 +161,12 @@ log(`distancia entre el auto remoto mostrado y el auto real del otro (lecturas n
   log(`J1 ve a J2 (rival 38): vuelta ${pa.lap}, puesto ${pa.position}; datos recibidos ${JSON.stringify(sa.remote)}`);
   log(`J2 ve a J1 (rival 38): vuelta ${pb.lap}, puesto ${pb.position}; datos recibidos ${JSON.stringify(sb.remote)}`);
   check('5a. cada página recibe la vuelta y el puesto del otro', sa.remote?.lap === b.lap && sb.remote?.lap === a.lap && Math.abs(sa.remote.rank - b.position) <= 1 && Math.abs(sb.remote.rank - a.position) <= 1);
+  // En cada muestra: si uno lleva ventaja real clara, los dos juegos tienen que mostrarlo adelante. «Clara» = 5+ secciones
+  // (≈ 23 unidades): cada pantalla muestra al otro como estaba hace ~0,2 s (150 ms de interpolación + red), que a
+  // 270 km/h son ≈ 4 secciones; con menos ventaja, el orden que muestra cada pantalla puede diferir legítimamente.
+  const agreeOf = (min) => { const j = rankSamples.filter((r) => Math.abs(r.pv - r.po) >= min); return [j.filter((r) => (r.pv > r.po) === (r.vMe < r.vOther) && (r.po > r.pv) === (r.oMe < r.oOther)).length, j.length]; };
+  const [agree, judged] = agreeOf(5), [a2, j2] = agreeOf(2);
+  check('5c. clasificación: con ventaja real clara (5+ secciones), las dos pantallas muestran el mismo orden', judged >= 10 && agree / judged >= 0.95, `(${agree}/${judged} muestras; con 2+ secciones: ${a2}/${j2}; ${rankSamples.length} muestras en total)`);
   check('5b. el juego cuenta la vuelta del auto remoto igual que la del auto real', pa.lap === b.lap && pb.lap === a.lap, `(J1 ve vuelta ${pa.lap} / real ${b.lap}; J2 ve ${pb.lap} / real ${a.lap})`);
   log(`hooks J1: ${JSON.stringify(sa.stats)} · J2: ${JSON.stringify(sb.stats)}`);
   log(`mensajes J1: enviados ${sa.sent}, recibidos ${sa.received} · J2: enviados ${sb.sent}, recibidos ${sb.received}`);

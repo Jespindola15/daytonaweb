@@ -1,0 +1,43 @@
+[   1.0 s] visibilidad: A visible, B visible
+[   5.8 s] las dos páginas ejecutan el juego (A 8 cuadros, B 6)
+[   9.1 s] sala XFV7: página A = J1 (anfitrión: true), página B = J2
+[   9.6 s] OK  0. sala en Cloudflare: J1 (anfitrión) y J2 en la misma sala
+[   9.7 s] ida y vuelta al Durable Object: 91 ms; desfase de reloj estimado: -41.5 ms
+[  10.2 s] J1 pidió la largada: la sala avisa a todos; cada página reinicia el juego y recorre el menú
+[  39.9 s] las dos páginas en carrera (barrera vista: A true, B true); hora local de largada A 1794540878139 / B 1794540878141 (diferencia 2.0 ms)
+[  41.0 s] OK  1. dos instancias independientes (cada página su propio emulador, su propio juego y su propio auto)  (J1 en 74.9,150.5 · J2 en -205.9,-34.1; instrucciones x86 ejecutadas: 3.49 / 3.52 mil millones)
+[  54.2 s] terminó la largada lanzada en las dos páginas: control manual
+[  59.3 s] J1 (página A): X → acelerador 1 (otra página 0), 301→298 km/h · Z → freno 255 (otra 0), →261 km/h · ← volante -60 (otra 0) · → volante 60 (otra 0) · al soltar: 0/0/0
+[  64.3 s] J2 (página B): X → acelerador 1 (otra página 0), 0→22 km/h · Z → freno 255 (otra 0), →0 km/h · ← volante -71 (otra 0) · → volante 80 (otra 0) · al soltar: 0/0/0
+[  64.3 s] OK  2a. J1: el juego de J1 registra acelerador, freno y volante (←/→) de su teclado
+[  64.3 s] OK  2b. J2: el juego de J2 registra acelerador, freno y volante (←/→) de su teclado
+[  64.3 s] OK  2c. las teclas de una página no llegan al juego de la otra
+[  96.0 s]   captura J1_ve_a_J2_1.png: el otro a 12.3 unidades adelante, -1.8 al costado, 240 km/h
+[ 102.2 s]   captura J1_ve_a_J2_2.png: el otro a 13.1 unidades adelante, -0.1 al costado, 238 km/h
+[ 106.3 s]   captura J1_ve_a_J2_3.png: el otro a 15.2 unidades adelante, 5.3 al costado, 268 km/h
+[ 106.3 s] OK  4. J2 aparece delante en la pantalla de J1  (12 unidades adelante, 240 km/h; captura J1_ve_a_J2_1.png)
+[ 145.0 s]   captura J2_ve_a_J1_1.png: el otro a 12.0 unidades adelante, -2.0 al costado, 243 km/h
+[ 151.9 s]   captura J2_ve_a_J1_2.png: el otro a 7.2 unidades adelante, 0.6 al costado, 242 km/h
+[ 155.9 s]   captura J2_ve_a_J1_3.png: el otro a 14.0 unidades adelante, -4.5 al costado, 260 km/h
+[ 155.9 s] OK  3. J1 aparece delante en la pantalla de J2  (12 unidades adelante, 243 km/h; captura J2_ve_a_J1_1.png)
+[ 157.0 s] OK  3/4b. el auto del otro se mueve en cada pantalla  (en 1 s: J2 visto por J1 avanzó 76 unidades; J1 visto por J2 52)
+[ 157.0 s] distancia entre el auto remoto mostrado y el auto real del otro (lecturas no simultáneas, ~150 ms de retardo de interpolación): mediana 19.5, p95 26.3 unidades
+[ 157.2 s] J1: vuelta 3, puesto 35 · J2: vuelta 3, puesto 37
+[ 157.2 s] J1 ve a J2 (rival 38): vuelta 3, puesto 36; datos recibidos {"lap":3,"rank":37,"kmh":257,"seg":360}
+[ 157.2 s] J2 ve a J1 (rival 38): vuelta 3, puesto 36; datos recibidos {"lap":3,"rank":35,"kmh":243,"seg":362}
+[ 157.2 s] OK  5a. cada página recibe la vuelta y el puesto del otro
+[ 157.2 s] OK  5c. clasificación: con ventaja real clara (5+ secciones), las dos pantallas muestran el mismo orden  (54/54 muestras; con 2+ secciones: 147/147; 193 muestras en total)
+[ 157.2 s] OK  5b. el juego cuenta la vuelta del auto remoto igual que la del auto real  (J1 ve vuelta 3 / real 3; J2 ve 3 / real 3)
+[ 157.2 s] hooks J1: {"skipped":1753,"aiRuns":66614,"terrainSkipped":422,"collisionRestores":1753,"renderPasses":1046} · J2: {"skipped":1949,"aiRuns":74062,"terrainSkipped":225,"collisionRestores":1949,"renderPasses":1065}
+[ 157.2 s] mensajes J1: enviados 1047, recibidos 1067 · J2: enviados 1067, recibidos 1047
+[ 157.7 s] audio J2: 137 voces; frecuencia efectiva distinta de la del formato en 137 (ej.: 44100→30322 Hz, 44100→22052 Hz, 44100→22052 Hz, 44100→22052 Hz, 44100→22052 Hz, 44100→4479 Hz)
+[ 157.9 s] página B (J2) cerrada
+[ 165.0 s] OK  6. J2 se desconecta y J1 sigue corriendo; su auto vuelve a la IA  (J1 presentó 133 cuadros en 7 s; auto de J2 devuelto a la IA: true; la sala informa: 1 jugador(es) en la sala)
+[ 165.0 s] rendimiento J1 al final: 19.9 fps del juego, 154 MIPS
+[ 165.0 s] OK  7. sin errores de JavaScript
+[ 165.0 s] RESULTADO 13/13
+
+--- consola J1 ---
+
+
+--- consola J2 ---

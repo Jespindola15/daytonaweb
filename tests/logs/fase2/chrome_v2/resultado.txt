@@ -1,0 +1,14 @@
+OK  0. sesión: una página es J1, la otra J2, en la misma sesión
+OK  1. dos instancias independientes (cada página su propio emulador, su propio juego y su propio auto)  (J1 en 79.0,150.5 · J2 en -205.9,-34.1; instrucciones x86 ejecutadas: 3.26 / 3.27 mil millones)
+OK  2a. J1: el juego de J1 registra acelerador, freno y volante (←/→) de su teclado
+OK  2b. J2: el juego de J2 registra acelerador, freno y volante (←/→) de su teclado
+OK  2c. las teclas de una página no llegan al juego de la otra
+OK  4. J2 aparece delante en la pantalla de J1  (15 unidades adelante, 313 km/h; captura J1_ve_a_J2_1.png)
+OK  3. J1 aparece delante en la pantalla de J2  (8 unidades adelante, 274 km/h; captura J2_ve_a_J1_1.png)
+OK  3/4b. el auto del otro se mueve en cada pantalla  (en 1 s: J2 visto por J1 avanzó 67 unidades; J1 visto por J2 75)
+OK  5a. cada página recibe la vuelta y el puesto del otro
+OK  5c. clasificación: con ventaja real clara (5+ secciones), las dos pantallas muestran el mismo orden  (315/315 muestras; con 2+ secciones: 317/317; 318 muestras en total)
+OK  5b. el juego cuenta la vuelta del auto remoto igual que la del auto real  (J1 ve vuelta 4 / real 4; J2 ve 0 / real 0)
+OK  6. J2 se desconecta y J1 sigue corriendo  (J1 presentó 148 cuadros en 7 s; estado "desconectado"; auto 38 devuelto a la IA: true; insignia "J1 · desconectado")
+OK  7. sin errores de JavaScript
+RESULTADO 13/13

@@ -1,0 +1,24 @@
+# Daytona USA web — salas online en Cloudflare (Workers + Durable Objects + WebSocket)
+#   npx wrangler dev        (local, con el runtime real de Cloudflare)
+#   npx wrangler deploy     (publica; la primera vez pide iniciar sesión)
+name = "daytona-salas"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+# El sitio completo también puede servirse desde acá: `node tools/build-site.mjs` arma ../dist
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+not_found_handling = "none"
+
+[[durable_objects.bindings]]
+name = "SALA"
+class_name = "Sala"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Sala", "Lobby"]

@@ -23,6 +23,7 @@ export const FIELD = {
   aiTargetZ: 0x038,  // [V] punto objetivo de la IA (Z, 16.16)
   steerInput: 0x0a8, // [V] dirección del volante (-127..127), sólo con sentido en el auto del jugador
   segment: 0x180,    // [V] segmento de pista (0..480 en Beginner); vuelve a 0 al cruzar la meta
+  progress: [0x1e0, 0x1e8, 0x1ec, 0x1f0], // [V] avance en la carrera (contadores de sección; ordenan la clasificación)
   lap: 0x218,        // [V] vueltas: 0 hasta cruzar la línea en la largada lanzada, 1 en la primera vuelta, etc.
   rank: 0x220,       // [V] posición en carrera, 0 = primero
 };
@@ -54,7 +55,7 @@ export function readAllCars(mem) { return Array.from({ length: CARS.count }, (_,
 // Estado mínimo de un auto para transmitir por red (enteros crudos: exacto y compacto)
 export function readPoseRaw(mem, i) {
   const a = carAddr(i), r = (o) => s32(mem.r32(a + o));
-  return { x: r(FIELD.x), y: r(FIELD.y), z: r(FIELD.z), yaw: r(FIELD.yaw) & 0xffff, pitch: r(FIELD.pitch) & 0xffff, roll: r(FIELD.roll) & 0xffff, travel: r(FIELD.travelDir) & 0xffff, speed: r(FIELD.speedRaw), kmh: r(FIELD.speedKmh), seg: r(FIELD.segment), lap: r(FIELD.lap) };
+  return { x: r(FIELD.x), y: r(FIELD.y), z: r(FIELD.z), yaw: r(FIELD.yaw) & 0xffff, pitch: r(FIELD.pitch) & 0xffff, roll: r(FIELD.roll) & 0xffff, travel: r(FIELD.travelDir) & 0xffff, speed: r(FIELD.speedRaw), kmh: r(FIELD.speedKmh), seg: r(FIELD.segment), lap: r(FIELD.lap), prog: FIELD.progress.map(r) };
 }
 
 // Mueve un auto. pose en unidades del juego (x,y,z) y grados (yaw). Campos omitidos no se tocan.
@@ -113,6 +114,8 @@ export function applyPoseRaw(mem, slot, p) {
   mem.w32(a + FIELD.speedRaw, p.speed >>> 0); mem.w32(a + FIELD.speedKmh, p.kmh >>> 0);
   if (p.seg !== undefined) mem.w32(a + FIELD.segment, p.seg >>> 0);
   if (p.lap !== undefined) mem.w32(a + FIELD.lap, p.lap >>> 0);
+  // avance en la carrera: con esto el juego clasifica al auto remoto en el puesto que le corresponde
+  if (p.prog) FIELD.progress.forEach((o, k) => mem.w32(a + o, p.prog[k] >>> 0));
 }
 
 // Autos controlados desde afuera (otro jugador). Puntos de intercepción (los mínimos necesarios):

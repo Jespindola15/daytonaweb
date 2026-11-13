@@ -79,7 +79,9 @@ function chase(chaser, leader, from, to, shot) {
   for (; t < to && !(shots[shot] && t > shots[shot].t + 3000); t += 50) {
     const me = readCar(P[chaser].emu.mem, 0), seen = readCar(P[chaser].emu.mem, PUPPET_SLOT);
     let d = prog(seen) - prog(me); d = ((d % 481) + 481 + 240) % 481 - 240; // distancia en segmentos dentro de la vuelta
-    if (d < 4) { ap[leader].maxKmh = 280; ap[chaser].maxKmh = d < -40 ? 280 : 130; ap[chaser].mode = d > -6 ? 'brake' : 'drive'; }
+    // el «líder» está detrás (o demasiado cerca): el perseguidor afloja y lo deja pasar (antes, con el puesto mal
+    // calculado, el J2 siempre largaba atrás; ahora larga desde su lugar real de la grilla, adelante)
+    if (d < 4) { ap[leader].maxKmh = 300; ap[chaser].maxKmh = 140; ap[chaser].mode = d > -6 ? 'brake' : 'drive'; }
     else if (d > 9) { ap[chaser].mode = 'drive'; ap[chaser].maxKmh = 290; ap[leader].maxKmh = 190; }
     else { ap[chaser].mode = 'drive'; ap[chaser].maxKmh = Math.max(120, seen.speedKmh); ap[leader].maxKmh = 220; }
     step(t); tryShot(shot, chaser);

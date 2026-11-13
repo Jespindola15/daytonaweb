@@ -1,7 +1,8 @@
 // main.js — frontend: sólo el juego en pantalla; ajustes y salas en paneles laterales.
 import { Emulator } from '../src/emulator.js';
-import { initLobby } from './lobby.js';
+import { initOnline } from './online.js';
 import { initLocalMP } from './mplocal.js';
+import { createGamepadInput, analogIni } from './gamepad.js';
 import { readAllCars, readCar, writeCarPose, aheadOf, CARS, FIELD } from '../src/game/daytona.js';
 
 const $ = (id) => document.getElementById(id);
@@ -9,7 +10,7 @@ const canvas = $('screen'), ctx2d = canvas.getContext('2d');
 const qs = new URLSearchParams(location.search);
 
 // ---------- ajustes persistentes ----------
-const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false, volume: 70, mute: false };
+const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false, volume: 70, mute: false, pad: 'keys', padIndex: 'auto' };
 let opts = { ...DEFAULTS };
 try { opts = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('daytona.opts') || '{}') }; } catch {}
 // v2: el reloj real pasa a ser el predeterminado (con el JIT, el virtual aceleraba el juego)
@@ -151,6 +152,8 @@ bind('optFps', 'fps', () => { $('fps').hidden = !opts.fps; });
 bind('optTelemetry', 'telemetry', () => { $('telemetry').hidden = !opts.telemetry; });
 bind('optVolume', 'volume', applyVolume); $('optVolume').oninput = () => { opts.volume = Number($('optVolume').value); applyVolume(); saveOpts(); };
 bind('optMute', 'mute', applyVolume); applyVolume();
+bind('optPad', 'pad', () => toast('El modo del mando se aplica al reiniciar el juego (Ajustes → Reiniciar)', 4000));
+bind('optPadIndex', 'padIndex');
 bind('optBudget', 'budget'); bind('optClock', 'clock', () => toast('El reloj nuevo se aplica al reiniciar el juego'));
 bind('optLog', 'log', () => { $('log').hidden = !opts.log; logDirty = true; renderLog(); });
 bind('optTrace', 'trace', () => { if (emu) emu.traceApis = opts.trace; });
@@ -214,6 +217,8 @@ function boot() {
   emu.traceApis = !!opts.trace;
   emu.clockMode = opts.clock;
   let bytes = 0; for (const [rel, data] of files) { emu.vfs.add(rel, data); bytes += data.length; }
+  // mando analógico: el juego arranca en su modo volante (PC_HANDLE). Se cambia sólo la copia en memoria del INI.
+  if (opts.pad === 'analog') { const ini = emu.vfs.find('DAYTONA.INI'); if (ini) { ini.data = new TextEncoder().encode(analogIni(new TextDecoder().decode(ini.data))); log('[MANDO] modo analógico: DAYTONA.INI → Device=PC_HANDLE'); } }
   log(`[VFS] ${files.size} archivos (${(bytes / 1048576).toFixed(1)} MiB)`);
   const dir = key.includes('\\') ? key.slice(0, key.lastIndexOf('\\')) : '';
   emu.vfs.cwd = dir.toUpperCase();
@@ -230,8 +235,9 @@ function loop() {
   // si pasó mucho desde el cuadro anterior (pestaña oculta, pausa), el reloj del juego no avanza ese hueco
   const tNow = performance.now();
   if (lastLoopT && emu.clockMode === 'real' && tNow - lastLoopT > 250) emu.timeOffset -= tNow - lastLoopT - 16.7;
+  pad.poll();
   // multijugador local: en la grilla el juego queda detenido (y su reloj también) hasta la largada común
-  if (mpl.frame()) { if (lastLoopT && emu.clockMode === 'real') emu.timeOffset -= Math.min(tNow - lastLoopT, 250); lastLoopT = tNow; if (opts.telemetry) showTelemetry(); rafId = requestAnimationFrame(loop); return; }
+  if (mpl.frame() || lobby.frame()) { if (lastLoopT && emu.clockMode === 'real') emu.timeOffset -= Math.min(tNow - lastLoopT, 250); lastLoopT = tNow; if (opts.telemetry) showTelemetry(); rafId = requestAnimationFrame(loop); return; }
   lastLoopT = tNow;
   const sliceMs = Number(opts.budget) || 14;
   const t = performance.now(), i0 = emu.cpu.icount;
@@ -247,7 +253,7 @@ function loop() {
     }
     res = emu.run(500_000);
     if (res.status === 'halted' || res.status === 'exited') break;
-    if (mpl.state.phase === 'grid') break;
+    if (mpl.state.phase === 'grid' || lobby.race.state.phase === 'grid') break;
   }
   const ms = performance.now() - t;
   if (emu.state.dd.dirty) { emu.state.dd.dirty = false; emu.scanout(); if (!$('loader').hidden && emu.state.dd.frames > 2) { $('loader').hidden = true; $('status').textContent = 'running'; } }
@@ -295,10 +301,17 @@ function togglePause(force) {
 $('btnRestart').onclick = () => { showPanel(null); boot(); };
 
 // ---------- salas online ----------
-const lobby = initLobby({
-  root: $('roomsBody'), toast,
-  onStart: () => { showPanel(null); toast('¡Largada! Reiniciando el juego para todos…', 3500); boot(); },
+const lobby = initOnline({ root: $('roomsBody'), toast, log, getEmu: () => emu, reboot: () => { showPanel(null); boot(); } });
+
+// ---------- mando / joystick ----------
+const pad = createGamepadInput({
+  getEmu: () => emu, getMode: () => opts.pad, log,
+  // con multijugador local en la misma computadora, cada ventana toma su mando (J1 → 1.º, J2 → 2.º)
+  getIndex: () => opts.padIndex !== 'auto' ? Number(opts.padIndex) : (mpl?.state.session ? mpl.state.role - 1 : null),
 });
+addEventListener('gamepadconnected', (e) => { toast(`Mando conectado: ${e.gamepad.id.slice(0, 40)}`); padInfo(); });
+addEventListener('gamepaddisconnected', () => { toast('Mando desconectado'); padInfo(); });
+function padInfo() { const n = [...(navigator.getGamepads?.() || [])].filter(Boolean); $('padInfo').textContent = n.length ? n.map((p) => `${p.index + 1}: ${p.id.slice(0, 48)}`).join('\n') : 'Ningún mando detectado (apretá un botón del mando).'; }
 
 // ---------- multijugador local (dos pestañas, BroadcastChannel) ----------
 const mpl = initLocalMP({ root: $('localBody'), toast, log, getEmu: () => emu, reboot: () => { showPanel(null); boot(); } });

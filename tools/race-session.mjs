@@ -8,7 +8,7 @@ export const DATA_START = 0x481000, DATA_END = 0x481000 + 0xd56190;
 // Secuencia: demo -> título -> Mode Select (ARCADE) -> Circuit Select (BEGINNER) -> caja -> largada
 export const TO_RACE_KEYS = [[7000, 0x0d], [10000, 0x0d], [13000, 0x0d], [16000, 0x0d], [19000, 0x0d], [22000, 0x0d]];
 
-export function createSession(gameDir, { log = () => {}, keys = TO_RACE_KEYS } = {}) {
+export function createSession(gameDir, { log = () => {}, keys = TO_RACE_KEYS, device = null } = {}) {
   const frames = [];
   const host = { deferPresent: true, present() {}, audio: null };
   const emu = new Emulator({ log, host });
@@ -16,6 +16,8 @@ export function createSession(gameDir, { log = () => {}, keys = TO_RACE_KEYS } =
   emu.logFiles = false;
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
   for (const f of walk(gameDir)) emu.vfs.add(path.relative(gameDir, f).split(path.sep).join('\\'), new Uint8Array(fs.readFileSync(f)));
+  // dispositivo de entrada (sección [Input] de DAYTONA.INI): KEYBOARD, PC_ANALOG, PC_HANDLE, SEGA_DIGITAL, SEGA_ANALOG
+  if (device) { const f = emu.vfs.find('DAYTONA.INI'); const t = new TextDecoder().decode(f.data).replace(/Device=\w+/, `Device=${device}`); f.data = new TextEncoder().encode(t); }
   emu.loadMain(emu.vfs.find('DAYTONA.EXE').data, 'DAYTONA.EXE');
   const sched = keys.flatMap(([ms, vk]) => [{ ms, vk, down: true }, { ms: ms + 300, vk, down: false }]);
   const gameMs = () => emu.nowMs() - 10000;

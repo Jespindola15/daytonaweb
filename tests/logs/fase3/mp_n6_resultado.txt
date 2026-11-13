@@ -1,0 +1,43 @@
+Arrancando 6 instancias de DAYTONA.EXE…
+OK  0. grilla: en las N instancias cada jugador ocupa su lugar y los demás lo ven ahí  (6 jugadores; en J1: J1→auto 0, J2→auto 38, J3→auto 37, J4→auto 36, J5→auto 35, J6→auto 34; J1 en 103.8,150.5)
+[MP] jugador 1 (jugador-1) → auto 34 en este juego
+[MP] jugador 5 (jugador-5) → auto 35 en este juego
+[MP] jugador 1 (jugador-1) → auto 38 en este juego
+[MP] jugador 1 (jugador-1) → auto 37 en este juego
+[MP] jugador 1 (jugador-1) → auto 36 en este juego
+[MP] jugador 3 (jugador-3) → auto 37 en este juego
+[MP] jugador 4 (jugador-4) → auto 36 en este juego
+[MP] jugador 4 (jugador-4) → auto 36 en este juego
+[MP] jugador 5 (jugador-5) → auto 35 en este juego
+[MP] jugador 6 (jugador-6) → auto 34 en este juego
+[MP] jugador 6 (jugador-6) → auto 34 en este juego
+[MP] jugador 6 (jugador-6) → auto 34 en este juego
+[MP] jugador 6 (jugador-6) → auto 34 en este juego
+[MP] jugador 1 (jugador-1) → auto 35 en este juego
+[MP] jugador 2 (jugador-2) → auto 38 en este juego
+[MP] jugador 2 (jugador-2) → auto 38 en este juego
+[MP] jugador 2 (jugador-2) → auto 38 en este juego
+[MP] jugador 2 (jugador-2) → auto 38 en este juego
+[MP] jugador 2 (jugador-2) → auto 38 en este juego
+[MP] jugador 3 (jugador-3) → auto 37 en este juego
+[MP] jugador 3 (jugador-3) → auto 37 en este juego
+[MP] jugador 3 (jugador-3) → auto 37 en este juego
+[MP] jugador 3 (jugador-3) → auto 37 en este juego
+[MP] jugador 4 (jugador-4) → auto 36 en este juego
+[MP] jugador 4 (jugador-4) → auto 36 en este juego
+[MP] jugador 5 (jugador-5) → auto 35 en este juego
+[MP] jugador 5 (jugador-5) → auto 35 en este juego
+[MP] jugador 5 (jugador-5) → auto 35 en este juego
+[MP] jugador 6 (jugador-6) → auto 34 en este juego
+[MP] jugador 4 (jugador-4) → auto 36 en este juego
+OK  1. cada instancia ve a los otros 5 jugadores donde realmente están  (23910 mediciones; mediana 1.32, p95 3.20 unidades; 730/13180 paquetes perdidos; relojes desfasados hasta 8100 ms)
+OK  2. clasificación: en cada pantalla el orden entre jugadores es el real  (17396/17464 comparaciones; diferencia entre el puesto que muestra cada juego y el propio, después de la largada: mediana 4, p95 11, máx 15 — los 34+ autos de la IA no son los mismos en cada instancia)
+OK  3. vueltas: cada instancia ve la vuelta real de cada jugador  (J1 v1 p40 · J2 v1 p27 · J3 v1 p16 · J4 v1 p19 · J5 v1 p3 · J6 v1 p1)
+OK  4. todas las instancias conectadas con los 5 restantes
+[MP] el jugador 6 se desconectó: su auto vuelve a la IA
+[MP] el jugador 6 se desconectó: su auto vuelve a la IA
+[MP] el jugador 6 se desconectó: su auto vuelve a la IA
+[MP] el jugador 6 se desconectó: su auto vuelve a la IA
+[MP] el jugador 6 se desconectó: su auto vuelve a la IA
+OK  5. J6 se va: los demás siguen conectados entre sí y su auto vuelve a la IA
+RESULTADO 6/6

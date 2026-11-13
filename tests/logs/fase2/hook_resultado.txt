@@ -4,8 +4,7 @@ OK  2. el auto remoto no recibe movimientos de la IA (posición idéntica 40 cua
 OK  4. la pose se aplica antes del render en cada cuadro  (39 pasadas de render)
     comparación por tick de lógica: 68 ticks
 OK  3a. la física del jugador queda intacta (bit a bit igual que sin hook)
-    rival 2 diverge en el tick 46: puesto 39 (ref) / 39; auto 39 puesto 1 (ref) / 12; velocidad 214569 / 214569; rumbo -30.01 / -30.45; distancia al jugador 92; distancia al 39 492
-OK  3b. la física de los demás rivales queda intacta  (26/27 rivales lejanos idénticos bit a bit; 1 difieren sólo después de que cambió la clasificación del auto remoto: reacción de la IA a la carrera, no alteración de su física)
+OK  3b. la física de los demás rivales queda intacta  (27/27 rivales lejanos idénticos bit a bit; 0 difieren sólo después de que cambió la clasificación del auto remoto: reacción de la IA a la carrera, no alteración de su física)
 OK  5. la ubicación en pista del remoto la sigue calculando el juego
 OK  6a. colisión: el jugador choca contra el auto remoto y pierde velocidad  (cuadro 13: 103 km/h contra 130 km/h sin el auto; serie con auto 138,140,141,142,144,127,130,133,121,108,110,113,116,103)
 OK  6b. colisión: el auto remoto no es empujado por la física local (su pose la manda el otro jugador)  (poses observadas: 170.56,-183.45,14.00; hooks: {"skipped":25,"aiRuns":950,"terrainSkipped":10,"collisionRestores":25,"renderPasses":13})

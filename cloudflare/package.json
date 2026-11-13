@@ -1,0 +1,13 @@
+{
+  "name": "daytona-salas",
+  "private": true,
+  "description": "Salas online de Daytona USA web (Cloudflare Workers + Durable Objects)",
+  "scripts": {
+    "build": "node ../tools/build-site.mjs",
+    "dev": "node ../tools/build-site.mjs && wrangler dev",
+    "deploy": "node ../tools/build-site.mjs && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

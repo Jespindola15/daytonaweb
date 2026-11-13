@@ -1,0 +1,10 @@
+modo «como teclado» (Device=KEYBOARD): RT → acelerador 1 (293 km/h) · LT → freno 255 · stick -1/-0,5/+0,5/+1 → volante -92 / -94 / 92 / 92 · centro 0
+OK  1. modo como teclado: el juego sigue en Device=KEYBOARD
+OK  2. RT acelera y LT frena (el juego registra acelerador y freno)
+OK  3. el stick gira a los dos lados (dirección digital: medio stick ya gira como la tecla)
+modo analógico (Device=PC_HANDLE): RT → acelerador 1 (295 km/h) · LT → freno 255 · stick -1/-0,5/+0,5/+1 → volante -128 / -56 / 55 / 127 · centro 0
+OK  4. modo analógico: el juego arranca como volante (Device=PC_HANDLE)
+OK  5. analógico: RT acelera y LT frena (botones 3 y 6 del joystick de Windows)
+OK  6. analógico: dirección proporcional (medio stick gira menos que el stick a fondo)  (-1→-128, -0,5→-56, +0,5→55, +1→127)
+OK  7. sin errores de JavaScript
+RESULTADO 7/7

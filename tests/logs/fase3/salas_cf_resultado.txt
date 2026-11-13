@@ -1,0 +1,14 @@
+OK  1. crear sala (2 a 6 jugadores)  {"codigo":"5Q8L","nombre":"Prueba 6","max":6}
+OK  2. la sala aparece en la lista
+OK  3. seis jugadores con lugares 0..5 distintos  (lugares 0,1,2,3,4,5)
+OK  4. el séptimo es rechazado (sala llena)  (cierre 4001: la sala está llena)
+OK  5. todos ven la lista completa y quién es el anfitrión
+OK  6. un jugador que no es anfitrión no puede largar
+OK  7. «largar» llega a los seis con la lista de participantes
+OK  8. la largada se da cuando los seis están en la grilla, con la misma hora para todos  (go en +1501 ms)
+OK  9. reenvío de autos: cada jugador recibe los de los otros cinco (y no los propios)  (recibidos 100,100,100,100,100,100; esperado 100 = 5 × 20)
+OK  10. si se va el anfitrión, la sala sigue y pasa a otro jugador
+OK  11. reconexión con el mismo id: conserva el lugar y reemplaza la conexión vieja  (lugar 3; conexión vieja cerrada con 4000)
+OK  12. no se puede entrar con la carrera en curso
+OK  13. al irse todos, la sala queda vacía y vuelve a «sala»  {"j":0,"e":"sala"}
+RESULTADO 13/13

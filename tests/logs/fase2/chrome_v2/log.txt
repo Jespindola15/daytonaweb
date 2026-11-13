@@ -1,0 +1,39 @@
+[   0.8 s] visibilidad: A visible, B visible
+[   5.9 s] las dos páginas ejecutan el juego (A 11 cuadros, B 7)
+[   8.1 s] sesión 7SAA: página A = J1, página B = J2 (sesión 7SAA)
+[   8.5 s] OK  0. sesión: una página es J1, la otra J2, en la misma sesión
+[   9.0 s] J1 pidió la largada: las dos páginas reinician el juego y recorren el menú
+[  37.5 s] las dos páginas en carrera (barrera vista: A true, B true)
+[  38.5 s] OK  1. dos instancias independientes (cada página su propio emulador, su propio juego y su propio auto)  (J1 en 79.0,150.5 · J2 en -205.9,-34.1; instrucciones x86 ejecutadas: 3.26 / 3.27 mil millones)
+[  51.5 s] terminó la largada lanzada en las dos páginas: control manual
+[  56.6 s] J1 (página A): X → acelerador 1 (otra página 0), 301→298 km/h · Z → freno 255 (otra 0), →257 km/h · ← volante -45 (otra 0) · → volante 60 (otra 0) · al soltar: 0/0/0
+[  61.6 s] J2 (página B): X → acelerador 1 (otra página 0), 0→26 km/h · Z → freno 255 (otra 0), →0 km/h · ← volante -80 (otra 0) · → volante 80 (otra 0) · al soltar: 0/0/0
+[  61.6 s] OK  2a. J1: el juego de J1 registra acelerador, freno y volante (←/→) de su teclado
+[  61.6 s] OK  2b. J2: el juego de J2 registra acelerador, freno y volante (←/→) de su teclado
+[  61.6 s] OK  2c. las teclas de una página no llegan al juego de la otra
+[ 118.8 s]   captura J1_ve_a_J2_1.png: el otro a 15.4 unidades adelante, 3.7 al costado, 313 km/h
+[ 125.8 s]   captura J1_ve_a_J2_2.png: el otro a 11.2 unidades adelante, 0.1 al costado, 239 km/h
+[ 132.0 s] OK  4. J2 aparece delante en la pantalla de J1  (15 unidades adelante, 313 km/h; captura J1_ve_a_J2_1.png)
+[ 145.3 s]   captura J2_ve_a_J1_1.png: el otro a 7.9 unidades adelante, 1.6 al costado, 274 km/h
+[ 203.1 s] OK  3. J1 aparece delante en la pantalla de J2  (8 unidades adelante, 274 km/h; captura J2_ve_a_J1_1.png)
+[ 204.1 s] OK  3/4b. el auto del otro se mueve en cada pantalla  (en 1 s: J2 visto por J1 avanzó 67 unidades; J1 visto por J2 75)
+[ 204.1 s] distancia entre el auto remoto mostrado y el auto real del otro (lecturas no simultáneas, ~150 ms de retardo de interpolación): mediana 15.5, p95 26.8 unidades
+[ 204.3 s] J1: vuelta 0, puesto 19 · J2: vuelta 4, puesto 30
+[ 204.3 s] J1 ve a J2 (rival 38): vuelta 4, puesto 1; datos recibidos {"lap":4,"rank":30,"kmh":0,"seg":360}
+[ 204.3 s] J2 ve a J1 (rival 38): vuelta 0, puesto 40; datos recibidos {"lap":0,"rank":19,"kmh":254,"seg":390}
+[ 204.3 s] OK  5a. cada página recibe la vuelta y el puesto del otro
+[ 204.3 s] OK  5c. clasificación: con ventaja real clara (5+ secciones), las dos pantallas muestran el mismo orden  (315/315 muestras; con 2+ secciones: 317/317; 318 muestras en total)
+[ 204.3 s] OK  5b. el juego cuenta la vuelta del auto remoto igual que la del auto real  (J1 ve vuelta 4 / real 4; J2 ve 0 / real 0)
+[ 204.3 s] hooks J1: {"skipped":1700,"aiRuns":67013,"terrainSkipped":189,"collisionRestores":1700,"renderPasses":1917} · J2: {"skipped":2300,"aiRuns":87400,"terrainSkipped":36,"collisionRestores":2300,"renderPasses":1583}
+[ 204.3 s] mensajes J1: enviados 1617, recibidos 1507 · J2: enviados 1508, recibidos 1618
+[ 204.8 s] audio J2: 232 voces; frecuencia efectiva distinta de la del formato en 232 (ej.: 44100→30322 Hz, 44100→22052 Hz, 44100→4479 Hz, 44100→22052 Hz, 44100→22052 Hz, 44100→22052 Hz)
+[ 205.0 s] página B (J2) cerrada
+[ 212.2 s] OK  6. J2 se desconecta y J1 sigue corriendo  (J1 presentó 148 cuadros en 7 s; estado "desconectado"; auto 38 devuelto a la IA: true; insignia "J1 · desconectado")
+[ 212.2 s] rendimiento J1 al final: 19.8 fps del juego, 119 MIPS
+[ 212.2 s] OK  7. sin errores de JavaScript
+[ 212.2 s] RESULTADO 13/13
+
+--- consola J1 ---
+
+
+--- consola J2 ---
