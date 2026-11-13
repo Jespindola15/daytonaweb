@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "node tools/dev-server.mjs 8137",
     "build": "node tools/build-site.mjs",
-    "test": "node tests/rooms_test.mjs"
+    "test": "node tests/rooms_test.mjs",
+    "deploy": "npm --prefix cloudflare install && npm --prefix cloudflare run deploy",
+    "dev:cf": "npm --prefix cloudflare install && npm --prefix cloudflare run dev"
   },
   "dependencies": {
     "@netlify/blobs": "^11.1.9"
