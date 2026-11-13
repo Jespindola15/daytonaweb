@@ -4,6 +4,7 @@ import { initOnline } from './online.js';
 import { initLocalMP } from './mplocal.js';
 import { createGamepadInput, analogIni } from './gamepad.js';
 import { createVideo } from './video.js';
+import { Hires3D } from '../src/game/hires3d.js';
 import { readAllCars, readCar, writeCarPose, aheadOf, CARS, FIELD } from '../src/game/daytona.js';
 
 const $ = (id) => document.getElementById(id);
@@ -11,7 +12,7 @@ const canvas = $('screen');
 const qs = new URLSearchParams(location.search);
 
 // ---------- ajustes persistentes ----------
-const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false, volume: 70, mute: false, pad: 'keys', padIndex: 'auto', res: 'auto', filter: 'hq' };
+const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false, volume: 70, mute: false, pad: 'keys', padIndex: 'auto', res: 'auto', filter: 'hq', hires: false };
 let opts = { ...DEFAULTS };
 try { opts = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('daytona.opts') || '{}') }; } catch {}
 // v2: el reloj real pasa a ser el predeterminado (con el JIT, el virtual aceleraba el juego)
@@ -36,9 +37,14 @@ function toast(msg, ms = 2600) { const t = $('toast'); t.textContent = msg; t.cl
 
 // ---------- video (WebGL2: resolución de salida y filtros; ver video.js) ----------
 const video = createVideo(canvas, { onResize: () => layout() });
+window.__video = video;   // para las pruebas automáticas
 const host = {
   deferPresent: true,
-  present(rgba, w, h) { video.frame(rgba, w, h); },
+  present(rgba, w, h) {
+    // «resolución 3D real»: los polígonos de ese mismo cuadro se redibujan en la GPU a la resolución de salida
+    const snap = opts.hires && video.gl ? emu?.hires3d?.last : null;
+    if (snap) video.frameHires(rgba, w, h, snap); else video.frame(rgba, w, h);
+  },
   setMode() {},
   setTitle() {},
   messageBox(c, t) { log(`[MSGBOX] ${c}: ${t}`); toast(`${c}: ${t}`, 5000); },
@@ -53,7 +59,7 @@ function layout() {
   canvas.classList.toggle('smooth', opts.filter !== 'nitido');   // el navegador sólo ajusta lo que falte
   video.configure({ filter: opts.filter, res: opts.res });
   const info = $('videoInfo');
-  if (info) info.textContent = video.gl ? `Salida: ${video.outW}×${video.outH} px (el juego dibuja a ${video.srcW}×${video.srcH})` : 'Este navegador no tiene WebGL2: se muestra a 640×480 sin filtros.';
+  if (info) info.textContent = video.gl ? `Salida: ${video.outW}×${video.outH} px (el juego dibuja a ${video.srcW}×${video.srcH})${opts.hires ? ' · 3D redibujado a la resolución de salida' : ''}` : 'Este navegador no tiene WebGL2: se muestra a 640×480 sin filtros.';
 }
 addEventListener('resize', layout);
 
@@ -148,6 +154,7 @@ $('btnSaveLog').onclick = saveLog; $('btnSaveLog2').onclick = saveLog;
 // controles de ajustes
 const bind = (id, key, fn) => { const el = $(id); if (el.type === 'checkbox') el.checked = !!opts[key]; else el.value = opts[key]; el.onchange = () => { opts[key] = el.type === 'checkbox' ? el.checked : el.value; saveOpts(); fn?.(); }; };
 bind('optScale', 'scale', layout); bind('optRes', 'res', layout); bind('optFilter', 'filter', layout);
+bind('optHires', 'hires', () => { if (emu?.hires3d) emu.hires3d.enable(!!opts.hires && video.gl); layout(); toast(opts.hires ? 'Resolución 3D real activada (experimental)' : 'Resolución 3D real desactivada'); });
 bind('optFps', 'fps', () => { $('fps').hidden = !opts.fps; });
 bind('optTelemetry', 'telemetry', () => { $('telemetry').hidden = !opts.telemetry; });
 bind('optVolume', 'volume', applyVolume); $('optVolume').oninput = () => { opts.volume = Number($('optVolume').value); applyVolume(); saveOpts(); };
@@ -216,6 +223,7 @@ function boot() {
   emu = new Emulator({ log, host });
   emu.traceApis = !!opts.trace;
   emu.clockMode = opts.clock;
+  emu.hires3d = new Hires3D(emu); if (opts.hires && video.gl) emu.hires3d.enable(true);
   let bytes = 0; for (const [rel, data] of files) { emu.vfs.add(rel, data); bytes += data.length; }
   // mando analógico: el juego arranca en su modo volante (PC_HANDLE). Se cambia sólo la copia en memoria del INI.
   if (opts.pad === 'analog') { const ini = emu.vfs.find('DAYTONA.INI'); if (ini) { ini.data = new TextEncoder().encode(analogIni(new TextDecoder().decode(ini.data))); log('[MANDO] modo analógico: DAYTONA.INI → Device=PC_HANDLE'); } }

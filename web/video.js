@@ -89,6 +89,66 @@ void main() {
   o = vec4(clamp((c + wt * (n + s + e + w)) / (1.0 + 4.0 * wt), 0.0, 1.0), 1.0);
 }`;
 
+// ---- modo «resolución 3D real»: los polígonos del juego se redibujan en la GPU (ver src/game/hires3d.js) ----
+const VS_POLY = `#version 300 es
+precision highp float;
+layout(location=0) in vec4 aP01; layout(location=1) in vec4 aP23; layout(location=2) in vec4 aRect;
+layout(location=3) in vec4 aInfo; layout(location=4) in vec4 aClip;
+uniform vec2 outSize; uniform float scale;
+flat out vec2 c0; flat out vec2 c1; flat out vec2 c2; flat out vec2 c3; flat out vec4 rect; flat out vec4 info; flat out vec4 clip;
+void main() {
+  vec2 p[4] = vec2[4](aP01.xy, aP01.zw, aP23.xy, aP23.zw);
+  int ids[6] = int[6](0, 1, 2, 0, 2, 3);
+  vec2 q = p[ids[gl_VertexID]] * scale;
+  // esquinas de la textura según el modo de orientación del juego (0x45DA10)
+  int m = int(aInfo.x);
+  ivec4 o = m == 0 ? ivec4(3, 2, 1, 0) : m == 1 ? ivec4(2, 3, 0, 1) : m == 2 ? ivec4(0, 1, 2, 3) : ivec4(1, 0, 3, 2);
+  c0 = p[o.x] * scale; c1 = p[o.y] * scale; c2 = p[o.z] * scale; c3 = p[o.w] * scale;
+  rect = aRect; info = aInfo; clip = aClip * scale;
+  gl_Position = vec4(q.x / outSize.x * 2.0 - 1.0, 1.0 - q.y / outSize.y * 2.0, 0.0, 1.0);
+}`;
+const FS_POLY = `#version 300 es
+precision highp float;
+precision highp usampler2D;
+flat in vec2 c0; flat in vec2 c1; flat in vec2 c2; flat in vec2 c3; flat in vec4 rect; flat in vec4 info; flat in vec4 clip;
+uniform usampler2D atlas; uniform vec2 outSize;
+out vec4 o;
+float cr(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
+void main() {
+  vec2 P = vec2(gl_FragCoord.x, outSize.y - gl_FragCoord.y);
+  if (P.x < clip.x || P.y < clip.y || P.x > clip.x + clip.z || P.y > clip.y + clip.w) discard;
+  // bilineal inverso (el rasterizador del juego interpola el cuadrilátero, no dos triángulos)
+  vec2 e = c1 - c0, f = c3 - c0, g = c0 - c1 + c2 - c3, h = P - c0;
+  float k2 = cr(g, f), k1 = cr(e, f) + cr(h, g), k0 = cr(h, e);
+  float u, v;
+  if (abs(k2) < 1e-4 * max(1.0, abs(k1))) { v = -k0 / k1; }
+  else {
+    float w = k1 * k1 - 4.0 * k0 * k2; if (w < 0.0) discard;
+    w = sqrt(w);
+    v = (-k1 - w) / (2.0 * k2);
+    if (v < -0.01 || v > 1.01) v = (-k1 + w) / (2.0 * k2);
+  }
+  float den = e.x + g.x * v;
+  u = abs(den) > abs(e.y + g.y * v) ? (h.x - f.x * v) / den : (h.y - f.y * v) / (e.y + g.y * v);
+  if (u < -0.01 || u > 1.01 || v < -0.01 || v > 1.01) discard;
+  ivec2 t = ivec2(clamp(floor(vec2(u, v) * rect.zw), vec2(0.0), rect.zw - 1.0));
+  uint c = texelFetch(atlas, ivec2(rect.xy) + t, 0).r;
+  if (info.y > 0.5 && c == 32u) discard;            // transparente: color clave 0x0020 (rasterizador B)
+  o = vec4(float((c >> 11) & 31u) / 31.0, float((c >> 5) & 63u) / 63.0, float(c & 31u) / 31.0, 1.0);
+}`;
+// capa de arriba: HUD, reflejos y efectos (píxeles que el juego pintó después del 3D), nítidos
+const FS_OVER = FS_HEAD + `
+uniform sampler2D mask;
+void main() {
+  if (texture(mask, uv).r < 0.5 / 255.0 * 5.0) discard;
+  vec2 texel = uv * srcSize;
+  vec2 scale = max(floor(outSize / srcSize), vec2(1.0));
+  vec2 region = 0.5 - 0.5 / scale;
+  vec2 d = fract(texel) - 0.5;
+  vec2 f = (d - clamp(d, -region, region)) * scale + 0.5;
+  o = vec4(texture(tex, (floor(texel) + f) / srcSize).rgb, 1.0);
+}`;
+
 export function createVideo(canvas, { onResize = () => {} } = {}) {
   const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
   const V = { gl: !!gl, srcW: 640, srcH: 480, outW: 640, outH: 480, filter: 'hq', res: 'auto', has: false, frames: 0 };
@@ -129,6 +189,7 @@ export function createVideo(canvas, { onResize = () => {} } = {}) {
   }
   function draw() {
     if (!V.has) return;
+    if (V.lastSnap) { drawHires(V.lastSnap); return; }
     const [w, h] = [V.outW, V.outH];
     const f = filterOf(V.filter), P = progs[f];
     gl.bindTexture(gl.TEXTURE_2D, src);
@@ -160,13 +221,104 @@ export function createVideo(canvas, { onResize = () => {} } = {}) {
     if (w !== V.outW || h !== V.outH || canvas.width !== w || canvas.height !== h) { V.outW = w; V.outH = h; canvas.width = w; canvas.height = h; }
     draw();
   }
+  // ---- recursos del modo 3D real ----
+  let H = null;
+  function hiresInit() {
+    if (H) return H;
+    const poly = program2(VS_POLY, FS_POLY), over = program(FS_OVER);
+    const atlas = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, atlas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R16UI, 2048, 2048);
+    const mask = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, mask);
+    for (const k of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, k, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R8, 640, 480);
+    const inst = gl.createBuffer();
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, inst);
+    for (let i = 0; i < 5; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 4, gl.FLOAT, false, 80, i * 16); gl.vertexAttribDivisor(i, 1); }
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    H = { poly, over, atlas, mask, inst, vao, slots: new Map(), shelfX: 0, shelfY: 0, shelfH: 0, data: new Float32Array(80 / 4 * 4096) };
+    return H;
+  }
+  function program2(vsrc, fsrc) {
+    const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vsrc)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsrc)); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return { p, u: (n) => gl.getUniformLocation(p, n) };
+  }
+  // lugar de cada textura en el atlas (estantes); si se llena, se vacía y se vuelve a llenar
+  function slotFor(t) {
+    let s = H.slots.get(t.key);
+    if (!s) {
+      if (H.shelfX + t.w > 2048) { H.shelfX = 0; H.shelfY += H.shelfH; H.shelfH = 0; }
+      if (H.shelfY + t.h > 2048) { H.slots.clear(); H.shelfX = H.shelfY = H.shelfH = 0; }
+      s = { x: H.shelfX, y: H.shelfY, ver: -2 }; H.slots.set(t.key, s);
+      H.shelfX += t.w; H.shelfH = Math.max(H.shelfH, t.h);
+    }
+    if (s.ver !== t.ver) {
+      gl.bindTexture(gl.TEXTURE_2D, H.atlas); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 2);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, s.x, s.y, t.w, t.h, gl.RED_INTEGER, gl.UNSIGNED_SHORT, t.data);
+      s.ver = t.ver; V.texUploads = (V.texUploads || 0) + 1;
+    }
+    return s;
+  }
+  function drawHires(snap) {
+    hiresInit();
+    const [w, h] = [V.outW, V.outH], k = w / V.srcW;
+    // 1) fondo: la imagen original (cielo, todo lo que no es 3D), escalada suave
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, w, h);
+    const B = progs.suave; gl.useProgram(B.p); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.uniform1i(B.u('tex'), 0); gl.uniform2f(B.u('srcSize'), V.srcW, V.srcH); gl.uniform2f(B.u('outSize'), w, h);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // 2) los polígonos del juego, en su orden, a la resolución de salida
+    const polys = snap.polys, n = Math.min(polys.length, 4096);
+    if (n) {
+      const d = H.data;
+      for (let i = 0; i < n; i++) {
+        const p = polys[i], s = slotFor(p.tex), o = i * 20, v = p.v;
+        d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2]; d[o + 3] = v[3]; d[o + 4] = v[4]; d[o + 5] = v[5]; d[o + 6] = v[6]; d[o + 7] = v[7];
+        d[o + 8] = s.x; d[o + 9] = s.y; d[o + 10] = p.tex.w; d[o + 11] = p.tex.h;
+        d[o + 12] = p.mode; d[o + 13] = p.transparent; d[o + 14] = 0; d[o + 15] = 0;
+        d[o + 16] = p.clip[0]; d[o + 17] = p.clip[1]; d[o + 18] = p.clip[2]; d[o + 19] = p.clip[3];
+      }
+      gl.useProgram(H.poly.p); gl.bindVertexArray(H.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, H.inst); gl.bufferData(gl.ARRAY_BUFFER, d.subarray(0, n * 20), gl.STREAM_DRAW);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, H.atlas);
+      gl.uniform1i(H.poly.u('atlas'), 1); gl.uniform2f(H.poly.u('outSize'), w, h); gl.uniform1f(H.poly.u('scale'), k);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+      gl.bindVertexArray(null); gl.activeTexture(gl.TEXTURE0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    }
+    // 3) arriba: HUD, reflejos y efectos (lo que el juego pintó después del 3D), desde la imagen original
+    if (snap.mask) {
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, H.mask); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 640, 480, gl.RED, gl.UNSIGNED_BYTE, snap.mask);
+      gl.useProgram(H.over.p); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src);
+      gl.uniform1i(H.over.u('tex'), 0); gl.uniform1i(H.over.u('mask'), 1);
+      gl.uniform2f(H.over.u('srcSize'), V.srcW, V.srcH); gl.uniform2f(H.over.u('outSize'), w, h);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.activeTexture(gl.TEXTURE0);
+    }
+    V.hiresPolys = n;
+  }
+
   return Object.assign(V, {
+    // cuadro con «resolución 3D real»: imagen original + polígonos capturados del mismo cuadro
+    frameHires(rgba, w, h, snap) {
+      if (!snap || w !== 640 || h !== 480) return this.frame(rgba, w, h);
+      gl.bindTexture(gl.TEXTURE_2D, src);
+      if (w !== V.srcW || h !== V.srcH || !V.has) { V.srcW = w; V.srcH = h; gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, rgba); onResize(); resize(); }
+      else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+      V.has = true; V.frames++; V.lastSnap = snap;
+      drawHires(snap);
+    },
     // un cuadro nuevo del juego (RGBA del tamaño original)
     frame(rgba, w, h) {
       gl.bindTexture(gl.TEXTURE_2D, src);
       if (w !== V.srcW || h !== V.srcH || !V.has) { V.srcW = w; V.srcH = h; gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, rgba); onResize(); resize(); }
       else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
-      V.has = true; V.frames++;
+      V.has = true; V.frames++; V.lastSnap = null;
       draw();
     },
     configure({ filter, res } = {}) { if (filter) V.filter = filter; if (res) V.res = res; resize(); },

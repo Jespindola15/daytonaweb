@@ -60,8 +60,9 @@
         <select id="optRes"><option value="auto">Automática (la de tu pantalla)</option><option value="480">640×480 (original)</option><option value="720">960×720</option><option value="1080">1440×1080 (1080p)</option><option value="1440">1920×1440 (1440p)</option><option value="2160">2880×2160 (4K)</option></select></label>
       <label class="field">Filtro
         <select id="optFilter"><option value="hq">Alta calidad (bicúbico + nitidez)</option><option value="nitido">Píxeles nítidos</option><option value="suave">Suave</option><option value="crt">Monitor CRT (líneas de barrido)</option></select></label>
+      <label class="check"><input type="checkbox" id="optHires"> Resolución 3D real (experimental): los autos y la pista se redibujan a la resolución elegida</label>
       <p class="hint" id="videoInfo"></p>
-      <p class="hint">El juego original dibuja a 640×480: la resolución alta y los filtros mejoran cómo se ve en pantallas grandes, pero no agregan detalle.</p>
+      <p class="hint">El juego original dibuja a 640×480: la resolución y los filtros mejoran cómo se ve en pantallas grandes. Con «Resolución 3D real» los polígonos se redibujan con la placa de video y los bordes quedan nítidos de verdad; el cielo, el HUD y los reflejos siguen a 640×480.</p>
       <label class="check"><input type="checkbox" id="optFps"> Mostrar FPS</label>
       <label class="check"><input type="checkbox" id="optTelemetry"> Telemetría del auto (velocidad, vuelta, posición, X/Y/Z)</label>
     </section>

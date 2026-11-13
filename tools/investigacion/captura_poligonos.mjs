@@ -1,0 +1,40 @@
+import fs from 'node:fs';
+import { createSession } from '../race-session.mjs';
+import { png } from '../png.mjs';
+const T = Number(process.argv[2] || 45000), OUT = process.argv[3] || 'tests/logs/reescalado/captura';
+fs.mkdirSync(OUT, { recursive: true });
+const S = createSession(process.env.GAME || 'game');
+S.untilMs(22500); S.key(0x58, true); S.untilMs(T);
+const emu = S.emu, m = emu.mem;
+const dv = new DataView(new ArrayBuffer(8));
+const f32 = (a) => { dv.setUint32(0, m.r32(a), true); return dv.getFloat32(0, true); };
+const f64 = (a) => { dv.setUint32(0, m.r32(a), true); dv.setUint32(4, m.r32(a + 4), true); return dv.getFloat64(0, true); };
+let cap = false, cur = null; const items = [], texs = {};
+emu.addHook(0x454c10, (c) => {
+  if (!cap) return true;
+  const p = m.r32(c.r[4] + 4), sx = f32(0xbd9df8), sy = f32(0xc464a8), ox = f64(0x47e2d0), oy = f64(0x47e2d8);
+  const v = []; for (let k = 0; k < 4; k++) v.push([(f32(p + 8 + k * 8) + ox) * sx, (f32(p + 12 + k * 8) + oy) * sy]);
+  cur = { v, flags: m.r8(p + 4), bank: m.r8(p + 5), tex: m.r16(p + 6) }; items.push(cur);
+  return true;
+});
+const rast = (kind) => (c) => {
+  if (!cap || !cur) return true;
+  const sp = c.r[4], st = m.r32(sp + 16), vp = m.r32(sp + 12);
+  const mode = m.r8(st), uv = m.r32(st + 8), tp = m.r32(st + 12), w = uv & 0xffff, h = uv >>> 16;
+  const iv = []; for (let k = 0; k < 4; k++) { const d = m.r32(vp + k * 4); iv.push([(d << 16) >> 16, d >> 16]); }
+  const dest = m.r32(sp + 4), pitch = m.r32(sp + 8) & 0xffff; const surf = [...emu.state.dd.objs.values()].find((o) => o && o.mem && dest >= o.mem && dest < o.mem + o.pitch * o.h); const off = surf ? dest - surf.mem : 0;
+  Object.assign(cur, { kind, mode, w, h, tp, iv, extra: m.r32(st + 4), offX: (off % (surf?.pitch || 1280)) / 2, offY: Math.floor(off / (surf?.pitch || 1280)), pitch });
+  const key = `${tp.toString(16)}_${w}x${h}`;
+  if (!texs[key] && w && h && w <= 512 && h <= 512) texs[key] = Buffer.from(m.u8.slice(tp, tp + w * h * 2)).toString('base64');
+  cur.key = key; cur = null;
+  return true;
+};
+emu.addHook(0x45da10, rast('A')); emu.addHook(0x45e1e0, rast('B'));
+emu.addHook(0x4559d0, (c) => { if (cap && cur) { cur.kind = 'esp'; cur = null; } return true; });
+const f0 = emu.state.dd.frames; while (emu.state.dd.frames === f0) emu.run(20000);
+cap = true; const f1 = emu.state.dd.frames; while (emu.state.dd.frames === f1) emu.run(20000); cap = false;
+png(S.screen(), `${OUT}/orig.png`);
+fs.writeFileSync(`${OUT}/items.json`, JSON.stringify(items)); fs.writeFileSync(`${OUT}/texs.json`, JSON.stringify(texs));
+const kinds = {}; for (const i of items) kinds[i.kind || 'sin rasterizar'] = (kinds[i.kind || 'sin rasterizar'] || 0) + 1;
+console.log('polígonos', items.length, 'texturas', Object.keys(texs).length, JSON.stringify(kinds));
+console.log(JSON.stringify(items.find((i) => i.kind === 'A')));

@@ -32,6 +32,8 @@ export class Memory {
     this.heapPtr = HEAP_BASE;
     this.blocks = new Map(); // addr -> size (para HeapSize/ReAlloc)
     this.freeList = new Map(); // size -> [addr]
+    // vigilancia de escrituras en un rango (la usa el reescalado 3D para saber quién pintó cada píxel)
+    this.watchLo = 0; this.watchHi = 0; this.onWatch = null;
   }
   chk(a, n, k) { if (a < 0x1000 || a + n > this.size) throw new MemFault(a, k); }
   r8(a) { a >>>= 0; if (a < 0x1000 || a >= this.size) throw new MemFault(a, 'lectura'); return this.u8[a]; }
@@ -55,9 +57,9 @@ export class Memory {
   }
   pw(a, n) { const pp = this.pinPages; if (!pp) return; for (let p = a >>> 12, e = (a + n - 1) >>> 12; p <= e; p++) if (pp[p]) { this.repin(a, n); return; } }
   cw(a, n) { const cp = this.codePages; if (!cp) return; for (let p = a >>> 12, e = (a + n - 1) >>> 12; p <= e; p++) if (cp[p]) this.onCodeWrite(p); }
-  w8(a, v) { a >>>= 0; if (a < 0x1000 || a >= this.size) throw new MemFault(a, 'escritura'); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; if (this.pinPages && this.pinPages[a >>> 12]) this.repin(a, 1); }
-  w16(a, v) { a >>>= 0; this.chk(a, 2, 'escritura'); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; this.u8[a + 1] = v >>> 8; if (this.pinPages && this.pinPages[a >>> 12]) this.repin(a, 2); }
-  w32(a, v) { a >>>= 0; this.chk(a, 4, 'escritura'); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; this.u8[a + 1] = v >>> 8; this.u8[a + 2] = v >>> 16; this.u8[a + 3] = v >>> 24; if (this.pinPages && this.pinPages[a >>> 12]) this.repin(a, 4); }
+  w8(a, v) { a >>>= 0; if (a < 0x1000 || a >= this.size) throw new MemFault(a, 'escritura'); if (a < this.watchHi && a >= this.watchLo) this.onWatch(a, 1); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; if (this.pinPages && this.pinPages[a >>> 12]) this.repin(a, 1); }
+  w16(a, v) { a >>>= 0; this.chk(a, 2, 'escritura'); if (a < this.watchHi && a >= this.watchLo) this.onWatch(a, 2); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; this.u8[a + 1] = v >>> 8; if (this.pinPages && this.pinPages[a >>> 12]) this.repin(a, 2); }
+  w32(a, v) { a >>>= 0; this.chk(a, 4, 'escritura'); if (a < this.watchHi && a >= this.watchLo) this.onWatch(a, 4); if (this.codePages && this.codePages[a >>> 12]) this.onCodeWrite(a >>> 12); this.u8[a] = v; this.u8[a + 1] = v >>> 8; this.u8[a + 2] = v >>> 16; this.u8[a + 3] = v >>> 24; if (this.pinPages && this.pinPages[a >>> 12]) this.repin(a, 4); }
   f32(a) { a >>>= 0; this.chk(a, 4, 'lectura'); return this.dv.getFloat32(a, true); }
   f64(a) { a >>>= 0; this.chk(a, 8, 'lectura'); return this.dv.getFloat64(a, true); }
   wf32(a, v) { a >>>= 0; this.chk(a, 4, 'escritura'); this.cw(a, 4); this.dv.setFloat32(a, v, true); this.pw(a, 4); }
@@ -81,9 +83,9 @@ export class Memory {
     this.u8[a + n] = 0;
     return n;
   }
-  writeBytes(a, bytes) { this.chk(a, bytes.length, 'escritura'); this.cw(a, bytes.length); this.u8.set(bytes, a); this.pw(a, bytes.length); }
-  fill(a, v, n) { this.chk(a, n, 'escritura'); this.cw(a, n); this.u8.fill(v, a, a + n); this.pw(a, n); }
-  copy(dst, src, n) { this.chk(dst, n, 'escritura'); this.cw(dst, n); this.chk(src, n, 'lectura'); this.u8.copyWithin(dst, src, src + n); this.pw(dst, n); }
+  writeBytes(a, bytes) { this.chk(a, bytes.length, 'escritura'); if (a < this.watchHi && a + bytes.length > this.watchLo) this.onWatch(a, bytes.length); this.cw(a, bytes.length); this.u8.set(bytes, a); this.pw(a, bytes.length); }
+  fill(a, v, n) { this.chk(a, n, 'escritura'); if (a < this.watchHi && a + n > this.watchLo) this.onWatch(a, n); this.cw(a, n); this.u8.fill(v, a, a + n); this.pw(a, n); }
+  copy(dst, src, n) { this.chk(dst, n, 'escritura'); if (dst < this.watchHi && dst + n > this.watchLo) this.onWatch(dst, n); this.cw(dst, n); this.chk(src, n, 'lectura'); this.u8.copyWithin(dst, src, src + n); this.pw(dst, n); }
 
   // Asignador simple: bump + listas libres por tamaño exacto (alineado a 16)
   alloc(n, zero = true) {
