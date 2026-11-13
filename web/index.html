@@ -56,7 +56,12 @@
       <h3>Video</h3>
       <label class="field">Escalado
         <select id="optScale"><option value="fit">Ajustar a la ventana</option><option value="int">Múltiplo entero (nítido)</option><option value="native">Tamaño original</option></select></label>
-      <label class="check"><input type="checkbox" id="optSmooth"> Suavizar píxeles</label>
+      <label class="field">Resolución
+        <select id="optRes"><option value="auto">Automática (la de tu pantalla)</option><option value="480">640×480 (original)</option><option value="720">960×720</option><option value="1080">1440×1080 (1080p)</option><option value="1440">1920×1440 (1440p)</option><option value="2160">2880×2160 (4K)</option></select></label>
+      <label class="field">Filtro
+        <select id="optFilter"><option value="hq">Alta calidad (bicúbico + nitidez)</option><option value="nitido">Píxeles nítidos</option><option value="suave">Suave</option><option value="crt">Monitor CRT (líneas de barrido)</option></select></label>
+      <p class="hint" id="videoInfo"></p>
+      <p class="hint">El juego original dibuja a 640×480: la resolución alta y los filtros mejoran cómo se ve en pantallas grandes, pero no agregan detalle.</p>
       <label class="check"><input type="checkbox" id="optFps"> Mostrar FPS</label>
       <label class="check"><input type="checkbox" id="optTelemetry"> Telemetría del auto (velocidad, vuelta, posición, X/Y/Z)</label>
     </section>

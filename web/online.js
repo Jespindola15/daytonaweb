@@ -4,7 +4,7 @@
 //   lista de salas → entrar (lugar 0..5) → el anfitrión larga → todos reinician el juego y recorren el menú →
 //   cada uno avisa al llegar a la grilla → la sala da una hora de largada común → durante la carrera cada uno
 //   manda su auto 20 veces por segundo y ve a los demás en los autos 38, 37, 36, 35 y 34 (ver multiplayer.js).
-import { SALAS_URL } from './config.js';
+import { SALAS_URL, ONLINE } from './config.js';
 import { createRaceDriver } from './race.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -19,6 +19,7 @@ function stableId() {
 }
 
 export function initOnline({ root, toast, getEmu, reboot, log = () => {} }) {
+  if (!ONLINE) return proximamente(root);
   const me = stableId();
   const race = createRaceDriver({ getEmu, reboot, log });
   const O = {
@@ -187,4 +188,14 @@ export function initOnline({ root, toast, getEmu, reboot, log = () => {} }) {
   };
   window.__online = api_;   // para las pruebas automáticas
   return api_;
+}
+
+// Versión sin online: el panel existe pero sólo anuncia que viene. No se conecta a ningún servidor.
+function proximamente(root) {
+  root.innerHTML = `<section class="soon"><div class="soon-badge">PRÓXIMAMENTE</div>
+    <h3>Carreras online de 2 a 6 jugadores</h3>
+    <p class="hint">Salas por internet: crear o entrar con un código, el anfitrión larga y todos corren la misma carrera, cada uno con su propio auto.</p>
+    <p class="hint">Mientras tanto podés jugar de a dos en la misma computadora con el botón <b>2P</b> (dos ventanas de Google Chrome, una al lado de la otra).</p></section>`;
+  const idle = { phase: 'idle', sync: null };
+  return { frame: () => false, state: {}, race: { state: idle }, open() {}, close() {}, entrar() {}, crear() {}, salir() {}, get active() { return false; } };
 }

@@ -5,3 +5,7 @@
 //      export const SALAS_URL = 'https://daytona-salas.TU-USUARIO.workers.dev';
 //    (también se puede cambiar desde el panel de salas → «Servidor de salas»).
 export const SALAS_URL = 'https://daytona-salas.inibag.workers.dev';
+
+// ONLINE: false = el panel de salas online muestra «Próximamente» y no se conecta a ningún servidor
+// (lo usa la versión para compartir: `npm run build:compartir`).
+export const ONLINE = true;

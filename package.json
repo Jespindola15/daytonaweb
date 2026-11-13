@@ -7,7 +7,8 @@
     "build": "node tools/build-site.mjs",
     "test": "node tests/rooms_test.mjs",
     "deploy": "npm --prefix cloudflare install && npm --prefix cloudflare run deploy",
-    "dev:cf": "npm --prefix cloudflare install && npm --prefix cloudflare run dev"
+    "dev:cf": "npm --prefix cloudflare install && npm --prefix cloudflare run dev",
+    "build:compartir": "node tools/build-site.mjs --compartir"
   },
   "dependencies": {
     "@netlify/blobs": "^11.1.9"

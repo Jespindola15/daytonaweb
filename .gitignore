@@ -3,3 +3,4 @@ dist/
 .netlify/
 cloudflare/node_modules
 cloudflare/.wrangler
+dist-compartir/

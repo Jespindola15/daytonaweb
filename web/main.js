@@ -3,14 +3,15 @@ import { Emulator } from '../src/emulator.js';
 import { initOnline } from './online.js';
 import { initLocalMP } from './mplocal.js';
 import { createGamepadInput, analogIni } from './gamepad.js';
+import { createVideo } from './video.js';
 import { readAllCars, readCar, writeCarPose, aheadOf, CARS, FIELD } from '../src/game/daytona.js';
 
 const $ = (id) => document.getElementById(id);
-const canvas = $('screen'), ctx2d = canvas.getContext('2d');
+const canvas = $('screen');
 const qs = new URLSearchParams(location.search);
 
 // ---------- ajustes persistentes ----------
-const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false, volume: 70, mute: false, pad: 'keys', padIndex: 'auto' };
+const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false, volume: 70, mute: false, pad: 'keys', padIndex: 'auto', res: 'auto', filter: 'hq' };
 let opts = { ...DEFAULTS };
 try { opts = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('daytona.opts') || '{}') }; } catch {}
 // v2: el reloj real pasa a ser el predeterminado (con el JIT, el virtual aceleraba el juego)
@@ -33,27 +34,26 @@ function saveLog() {
 }
 function toast(msg, ms = 2600) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms); }
 
-// ---------- video ----------
-let img = null;
+// ---------- video (WebGL2: resolución de salida y filtros; ver video.js) ----------
+const video = createVideo(canvas, { onResize: () => layout() });
 const host = {
   deferPresent: true,
-  present(rgba, w, h) {
-    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; img = null; layout(); }
-    if (!img) img = new ImageData(w, h);
-    img.data.set(rgba); ctx2d.putImageData(img, 0, 0);
-  },
-  setMode(w, h) { if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; img = null; layout(); } },
+  present(rgba, w, h) { video.frame(rgba, w, h); },
+  setMode() {},
   setTitle() {},
   messageBox(c, t) { log(`[MSGBOX] ${c}: ${t}`); toast(`${c}: ${t}`, 5000); },
   audio: null,
 };
 function layout() {
-  const W = innerWidth, H = innerHeight, w = canvas.width, h = canvas.height;
+  const W = innerWidth, H = innerHeight, [w, h] = video.size();   // tamaño lógico: el del juego (640×480)
   let s = Math.min(W / w, H / h);
   if (opts.scale === 'int') s = Math.max(1, Math.floor(s));
   if (opts.scale === 'native') s = 1;
   canvas.style.width = `${Math.floor(w * s)}px`; canvas.style.height = `${Math.floor(h * s)}px`;
-  canvas.classList.toggle('smooth', !!opts.smooth);
+  canvas.classList.toggle('smooth', opts.filter !== 'nitido');   // el navegador sólo ajusta lo que falte
+  video.configure({ filter: opts.filter, res: opts.res });
+  const info = $('videoInfo');
+  if (info) info.textContent = video.gl ? `Salida: ${video.outW}×${video.outH} px (el juego dibuja a ${video.srcW}×${video.srcH})` : 'Este navegador no tiene WebGL2: se muestra a 640×480 sin filtros.';
 }
 addEventListener('resize', layout);
 
@@ -147,7 +147,7 @@ $('btnSaveLog').onclick = saveLog; $('btnSaveLog2').onclick = saveLog;
 
 // controles de ajustes
 const bind = (id, key, fn) => { const el = $(id); if (el.type === 'checkbox') el.checked = !!opts[key]; else el.value = opts[key]; el.onchange = () => { opts[key] = el.type === 'checkbox' ? el.checked : el.value; saveOpts(); fn?.(); }; };
-bind('optScale', 'scale', layout); bind('optSmooth', 'smooth', layout);
+bind('optScale', 'scale', layout); bind('optRes', 'res', layout); bind('optFilter', 'filter', layout);
 bind('optFps', 'fps', () => { $('fps').hidden = !opts.fps; });
 bind('optTelemetry', 'telemetry', () => { $('telemetry').hidden = !opts.telemetry; });
 bind('optVolume', 'volume', applyVolume); $('optVolume').oninput = () => { opts.volume = Number($('optVolume').value); applyVolume(); saveOpts(); };

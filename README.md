@@ -10,6 +10,16 @@ de juego que corre es el del EXE.
 > (sólo el juego + ajustes) y un gestor de salas online (Netlify Functions + Blobs). **No se probó todavía una carrera.**
 > Detalles: `AVANCE_MENU.md` y `AVANCE_RENDIMIENTO_Y_SALAS.md`.
 
+### Versión para compartir (sin online: «Próximamente»)
+
+Mismo juego (joystick, puestos corregidos, sonido, 2 ventanas en la misma PC), pero el panel de salas online
+sólo dice «Próximamente» y no se conecta a ningún servidor. Dos formas de publicarla en otro sitio de Netlify:
+
+- **Automática (recomendada):** en Netlify, «Add new site → Import from Git» con este mismo repositorio, y en
+  *Site configuration → Environment variables* agregá `COMPARTIR` = `1`. Cada push actualiza los dos sitios.
+- **A mano:** `npm run build:compartir` arma la carpeta `dist-compartir/`; arrastrala a
+  https://app.netlify.com/drop (o a «Deploys» de un sitio nuevo).
+
 ### Online (Fase 3): salas en Cloudflare, 2 a 6 jugadores, joystick
 
 Botón 👥 → crear sala o entrar. El anfitrión larga y todos corren la misma carrera, cada uno con su copia del juego.

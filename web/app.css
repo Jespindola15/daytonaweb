@@ -96,3 +96,8 @@ kbd { background: var(--panel2); border: 1px solid var(--line); border-bottom-wi
 input[type=range] { width: 100%; accent-color: var(--acc); }
 #padInfo { white-space: pre-line; }
 .dim { color: var(--dim); font-size: 12px; }
+
+/* panel «Próximamente» */
+.soon { text-align: center; padding: 28px 6px !important; }
+.soon-badge { display: inline-block; padding: 6px 14px; border-radius: 999px; background: linear-gradient(90deg, var(--acc), var(--acc2)); color: #111; font: 800 13px system-ui, sans-serif; letter-spacing: 2px; margin-bottom: 14px; }
+.soon h3 { text-transform: none !important; font-size: 16px !important; color: var(--ink) !important; letter-spacing: 0 !important; }
