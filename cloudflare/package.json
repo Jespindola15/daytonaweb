@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "wrangler": "^4.40.0"
+  },
+  "dependencies": {
+    "daytona-web": "file:.."
   }
 }
