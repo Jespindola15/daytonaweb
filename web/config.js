@@ -4,4 +4,4 @@
 //  · Si el sitio sigue en Netlify, poné acá la dirección del Worker, por ejemplo:
 //      export const SALAS_URL = 'https://daytona-salas.TU-USUARIO.workers.dev';
 //    (también se puede cambiar desde el panel de salas → «Servidor de salas»).
-export const SALAS_URL = '';
+export const SALAS_URL = 'https://daytona-salas.inibag.workers.dev';
