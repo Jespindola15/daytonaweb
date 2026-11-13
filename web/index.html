@@ -17,7 +17,9 @@
 <!-- barra flotante (se oculta sola mientras jugás) -->
 <nav id="dock" aria-label="Controles">
   <button id="btnPause" title="Pausa (P)" aria-label="Pausa">❚❚</button>
+  <button id="btnMute" title="Sonido / silenciar (M)" aria-label="Silenciar">🔊</button>
   <button id="btnFull" title="Pantalla completa (F11)" aria-label="Pantalla completa">⛶</button>
+  <button id="btnLocal" title="Multijugador local (2 pestañas)" aria-label="Multijugador local">2P</button>
   <button id="btnRooms" title="Salas online" aria-label="Salas online">👥</button>
   <button id="btnSettings" title="Ajustes" aria-label="Ajustes">⚙</button>
 </nav>
@@ -59,6 +61,12 @@
       <label class="check"><input type="checkbox" id="optTelemetry"> Telemetría del auto (velocidad, vuelta, posición, X/Y/Z)</label>
     </section>
     <section>
+      <h3>Sonido</h3>
+      <label class="field">Volumen <span id="volVal"></span>
+        <input type="range" id="optVolume" min="0" max="100" step="1"></label>
+      <label class="check"><input type="checkbox" id="optMute"> Silenciar (M)</label>
+    </section>
+    <section>
       <h3>Rendimiento</h3>
       <label class="field">CPU por cuadro del navegador
         <select id="optBudget"><option value="8">8 ms (más fluido el navegador)</option><option value="14">14 ms (equilibrado)</option><option value="24">24 ms (más rápido el juego)</option></select></label>
@@ -88,6 +96,13 @@
     </section>
   </div>
 </aside>
+
+<!-- multijugador local: dos pestañas del mismo navegador -->
+<aside id="local" class="drawer" hidden aria-label="Multijugador local">
+  <header><h2>MULTIJUGADOR LOCAL</h2><button class="x" data-close="local" aria-label="Cerrar">✕</button></header>
+  <div class="scroll" id="localBody"></div>
+</aside>
+<div id="mpBadge" class="badge" hidden></div>
 
 <!-- panel de salas online -->
 <aside id="rooms" class="drawer" hidden aria-label="Salas online">

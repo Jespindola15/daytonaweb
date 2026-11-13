@@ -106,6 +106,7 @@ export function present(emu, surf) {
   const s = S(emu);
   s.frames++;
   s.dirty = true;
+  emu.onPresent?.();
   if (s.frames <= 5 || s.frames % 300 === 0) emu.log('DDRAW', `present #${s.frames} (${s.lastPresentCause || '?'}): ${surf.w}x${surf.h}x${surf.bpp}`);
   if (!emu.host.deferPresent) scanout(emu);
   emu.yieldRequested = true;

@@ -1,0 +1,19 @@
+Arrancando dos instancias independientes de DAYTONA.EXE…
+[MP] el otro jugador se desconectó: su auto vuelve a la IA
+OK  1. dos instancias independientes (estados distintos de cada juego)
+OK  2a. J2 frena (velocidad baja con Z)  (252 -> 123 km/h)
+OK  2b. ambos giran (teclas ←/→ y cambio de rumbo)  (J1 595 pasos girando, J2 589)
+OK  2c. ambos aceleran (X)  (máx J1 302 km/h, J2 308 km/h)
+OK  3/4. la marioneta sigue al auto real del otro (interpolado)  (error p95 3.04 / 3.41 unidades ≈ m; 82 paquetes perdidos de 1662, 0 desordenados descartados, 36 reinsertados en orden)
+    peor salto: t=34750 J2 visto por J1 paso 8.5 vs real máx 4.3; real {"x":-194.51,"z":-41.34,"yaw":-120,"kmh":306,"lap":0,"pos":24} marioneta {"x":-197.09,"z":-39.85,"yaw":-120,"kmh":305,"lap":0,"pos":23} anterior {"x":-204.44,"z":-35.6,"yaw":-120,"kmh":305,"lap":0,"pos":22}
+    J1 viendo a J2: 812 cuadros, 1 con avance mayor al posible; peor: 11.9 unidades en 79 ms (máx. permitido 11.2) a t=30.97 s
+    J2 viendo a J1: 790 cuadros, 1 con avance mayor al posible; peor: 11.5 unidades en 87 ms (máx. permitido 11.4) a t=57.11 s
+    (métrica anterior por pasos fijos de 50 ms, afectada por el desfase entre los cuadros de cada juego: exceso 4.2 / 3.9)
+OK  5a. sin teletransportes visibles en los cuadros que ve cada jugador  (0 cuadros con salto > 3 unidades de 1602; con criterio estricto 2, peor exceso 0.66 unidades)
+OK  3. J1 aparece delante en la pantalla de J2  (t=57.5s, 23 unidades adelante)
+OK  4. J2 aparece delante en la pantalla de J1  (t=64.3s, 9 unidades adelante)
+OK  5b. ambos completan vueltas  (J1 vuelta 2, J2 vuelta 2)
+OK  5c. cada instancia ve la vuelta correcta del otro  (J1 ve a J2 en vuelta 2, J2 ve a J1 en vuelta 2)
+OK  6. J2 se desconecta y J1 sigue corriendo  (J1 presentó 79 cuadros más; estado "desconectado")
+OK  6b. al desconectarse, el auto del otro vuelve a la IA
+RESULTADO 12/12

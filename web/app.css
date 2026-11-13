@@ -81,3 +81,16 @@ kbd { background: var(--panel2); border: 1px solid var(--line); border-bottom-wi
 #toast.show { opacity: 1; transform: translateX(-50%); }
 
 #telemetry { position: fixed; left: 12px; bottom: 10px; margin: 0; font: 12px/1.4 ui-monospace, monospace; color: #9ef0c5; background: rgba(0,0,0,.6); padding: 5px 8px; border-radius: 6px; pointer-events: none; }
+
+/* ---------- multijugador local ---------- */
+#localBody .row { margin: 10px 0; }
+#localBody .hint { color: var(--dim); font-size: 13px; line-height: 1.4; }
+.mp-who { font-size: 18px; margin: 12px 0 8px; }
+.mp-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.mp-row span { color: var(--dim); }
+.mp-row b { text-align: right; font-weight: 600; }
+.st-conectado { color: #5fd38a; } .st-sin-señal { color: #f0c04a; } .st-desconectado { color: #ff6b5b; } .st-esperando { color: var(--dim); }
+#dock #btnLocal { font: 700 13px system-ui, sans-serif; color: var(--ink); }
+.badge { position: fixed; left: 12px; top: 12px; z-index: 20; padding: 4px 10px; border-radius: 999px; background: rgba(20,22,28,.85); border: 1px solid var(--line); font: 600 12px system-ui, sans-serif; }
+.badge[hidden] { display: none; }
+input[type=range] { width: 100%; accent-color: var(--acc); }

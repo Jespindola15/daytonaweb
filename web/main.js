@@ -1,6 +1,7 @@
 // main.js — frontend: sólo el juego en pantalla; ajustes y salas en paneles laterales.
 import { Emulator } from '../src/emulator.js';
 import { initLobby } from './lobby.js';
+import { initLocalMP } from './mplocal.js';
 import { readAllCars, readCar, writeCarPose, aheadOf, CARS, FIELD } from '../src/game/daytona.js';
 
 const $ = (id) => document.getElementById(id);
@@ -8,7 +9,7 @@ const canvas = $('screen'), ctx2d = canvas.getContext('2d');
 const qs = new URLSearchParams(location.search);
 
 // ---------- ajustes persistentes ----------
-const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false };
+const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false, volume: 70, mute: false };
 let opts = { ...DEFAULTS };
 try { opts = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('daytona.opts') || '{}') }; } catch {}
 // v2: el reloj real pasa a ser el predeterminado (con el JIT, el virtual aceleraba el juego)
@@ -59,6 +60,8 @@ addEventListener('resize', layout);
 function makeAudio() {
   const ac = new AudioContext();
   const voices = new Map();
+  // volumen general (ajustes): todas las voces pasan por este nodo
+  const master = ac.createGain(); master.connect(ac.destination);
   const toBuffer = (data, fmt) => {
     const ch = fmt.channels || 1, bps = (fmt.bits || 16) / 8, frames = Math.floor(data.length / (bps * ch));
     const buf = ac.createBuffer(ch, Math.max(1, frames), fmt.rate || 22050);
@@ -67,24 +70,39 @@ function makeAudio() {
     return buf;
   };
   const dbToGain = (v) => Math.pow(10, (v | 0) / 2000);
-  const start = (v, off) => { const src = ac.createBufferSource(); src.buffer = v.buffer; src.loop = v.loop; src.connect(v.gain); src.start(0, off % v.buffer.duration); v.src = src; v.t0 = ac.currentTime - off; };
+  // v.rate = velocidad de reproducción (SetFrequency / frecuencia del formato). off y pos en segundos del búfer.
+  const start = (v, off) => {
+    const src = ac.createBufferSource(); src.buffer = v.buffer; src.loop = v.loop; src.playbackRate.value = v.rate; src.connect(v.gain);
+    off = v.loop ? off % v.buffer.duration : off;
+    if (!v.loop && off >= v.buffer.duration) { v.src = null; return; }
+    src.start(0, off); v.src = src; v.t0 = ac.currentTime; v.off0 = off;
+  };
+  const posOf = (v) => v.off0 + (ac.currentTime - v.t0) * v.rate;
   return {
-    ctx: ac,
-    play(id, data, fmt, loop, vol, pan, startPos) {
+    ctx: ac, master, _voices: voices,
+    setMaster(vol01) { master.gain.setTargetAtTime(vol01, ac.currentTime, 0.02); },
+    play(id, data, fmt, loop, vol, pan, startPos, hz) {
       this.stop(id); const v = voices.get(id) || {};
       v.fmt = fmt; v.loop = loop; v.buffer = toBuffer(data, fmt);
-      if (!v.gain) { v.gain = ac.createGain(); v.pan = ac.createStereoPanner(); v.gain.connect(v.pan).connect(ac.destination); }
+      v.rate = hz && fmt.rate ? hz / fmt.rate : 1;   // el juego fija la frecuencia ANTES de Play
+      if (!v.gain) { v.gain = ac.createGain(); v.pan = ac.createStereoPanner(); v.gain.connect(v.pan).connect(master); }
       v.gain.gain.value = dbToGain(vol); v.pan.pan.value = Math.max(-1, Math.min(1, (pan | 0) / 10000));
       voices.set(id, v); start(v, (startPos || 0) / ((fmt.rate || 22050) * (fmt.align || 2)));
     },
-    update(id, data) { const v = voices.get(id); if (!v || !v.src) return; const pos = ac.currentTime - v.t0; try { v.src.stop(); } catch {} v.buffer = toBuffer(data, v.fmt); start(v, pos); },
+    update(id, data) { const v = voices.get(id); if (!v || !v.src) return; const pos = posOf(v); try { v.src.stop(); } catch {} v.buffer = toBuffer(data, v.fmt); start(v, pos); },
     stop(id) { const v = voices.get(id); if (v?.src) { try { v.src.stop(); } catch {} v.src = null; } },
     setVolume(id, vol) { const v = voices.get(id); if (v?.gain) v.gain.gain.value = dbToGain(vol); },
     setPan(id, p) { const v = voices.get(id); if (v?.pan) v.pan.pan.value = Math.max(-1, Math.min(1, p / 10000)); },
-    setRate(id, hz) { const v = voices.get(id); if (v?.src && v.fmt.rate) v.src.playbackRate.value = hz / v.fmt.rate; },
+    setRate(id, hz) {
+      let v = voices.get(id); if (!v) { v = {}; voices.set(id, v); }
+      const r = v.fmt?.rate ? hz / v.fmt.rate : null;
+      if (v.src && r) { v.off0 = posOf(v); v.t0 = ac.currentTime; v.rate = r; v.src.playbackRate.value = r; }
+      else if (r) v.rate = r;
+    },
   };
 }
-function ensureAudio() { try { if (!host.audio) host.audio = makeAudio(); if (host.audio.ctx.state === 'suspended') host.audio.ctx.resume(); } catch {} }
+const applyVolume = () => { const g = opts.mute ? 0 : Math.pow((Number(opts.volume) || 0) / 100, 2); host.audio?.setMaster(g); const el = $('volVal'); if (el) el.textContent = opts.mute ? '(silenciado)' : `${opts.volume}%`; const b = $('btnMute'); if (b) { b.textContent = opts.mute || !Number(opts.volume) ? '🔇' : '🔊'; b.setAttribute('aria-pressed', String(!!opts.mute)); } };
+function ensureAudio() { try { if (!host.audio) { host.audio = makeAudio(); applyVolume(); } if (host.audio.ctx.state === 'suspended') host.audio.ctx.resume(); } catch {} }
 
 // ---------- teclado global (no hace falta hacer clic en el canvas) ----------
 const VK = { ArrowLeft: 0x25, ArrowUp: 0x26, ArrowRight: 0x27, ArrowDown: 0x28, Enter: 0x0d, NumpadEnter: 0x0d, Escape: 0x1b, Space: 0x20, ShiftLeft: 0x10, ShiftRight: 0x10, ControlLeft: 0x11, ControlRight: 0x11, AltLeft: 0x12, Tab: 0x09, Backspace: 0x08 };
@@ -99,23 +117,28 @@ const typing = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 addEventListener('keydown', (e) => {
   if (typing(e)) return;
   if (e.code === 'KeyP' && !e.repeat) { togglePause(); e.preventDefault(); return; }
+  if (e.code === 'KeyM' && !e.repeat) { toggleMute(); e.preventDefault(); return; }
   ensureAudio();
   const vk = vkOf(e); if (!vk || !emu?.keyEvent || !running) return;
+  if (mpl.routeKey(e.code, vk, true)) { e.preventDefault(); return; }   // teclado compartido (multijugador local)
   if (!e.repeat) emu.keyEvent(vk, true);
   e.preventDefault();
 });
-addEventListener('keyup', (e) => { if (typing(e)) return; const vk = vkOf(e); if (vk && emu?.keyEvent) { emu.keyEvent(vk, false); e.preventDefault(); } });
+addEventListener('keyup', (e) => { if (typing(e)) return; const vk = vkOf(e); if (vk && mpl.routeKey(e.code, vk, false)) { e.preventDefault(); return; } if (vk && emu?.keyEvent) { emu.keyEvent(vk, false); e.preventDefault(); } });
 addEventListener('blur', () => { if (emu?.state?.user) for (let vk = 0; vk < 256; vk++) if (emu.state.user.keys[vk]) emu.keyEvent(vk, false); });
 
 // ---------- barra flotante, paneles ----------
 let idleT;
 const wake = () => { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => { if (running && !openPanel()) document.body.classList.add('idle'); }, 2500); };
 addEventListener('mousemove', wake); addEventListener('mousedown', wake); wake();
-const openPanel = () => !$('settings').hidden || !$('rooms').hidden;
-function showPanel(id) { for (const p of ['settings', 'rooms']) $(p).hidden = p !== id || !$(p).hidden; $('btnSettings').setAttribute('aria-pressed', String(!$('settings').hidden)); $('btnRooms').setAttribute('aria-pressed', String(!$('rooms').hidden)); if (!$('rooms').hidden) lobby.open(); else lobby.close(); }
+const openPanel = () => !$('settings').hidden || !$('rooms').hidden || !$('local').hidden;
+function showPanel(id) { for (const p of ['settings', 'rooms', 'local']) $(p).hidden = p !== id || !$(p).hidden; $('btnSettings').setAttribute('aria-pressed', String(!$('settings').hidden)); $('btnRooms').setAttribute('aria-pressed', String(!$('rooms').hidden)); $('btnLocal').setAttribute('aria-pressed', String(!$('local').hidden)); if (!$('rooms').hidden) lobby.open(); else lobby.close(); }
 $('btnSettings').onclick = () => showPanel('settings');
 $('btnRooms').onclick = () => showPanel('rooms');
+$('btnLocal').onclick = () => showPanel('local');
 for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => { $(b.dataset.close).hidden = true; showPanel(null); canvas.focus(); };
+function toggleMute() { opts.mute = !opts.mute; $('optMute').checked = opts.mute; saveOpts(); ensureAudio(); applyVolume(); toast(opts.mute ? 'Sonido silenciado (M)' : `Sonido: ${opts.volume}%`); }
+$('btnMute').onclick = toggleMute;
 $('btnFull').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}));
 $('btnPause').onclick = () => togglePause();
 $('btnResume').onclick = () => togglePause(false);
@@ -126,6 +149,8 @@ const bind = (id, key, fn) => { const el = $(id); if (el.type === 'checkbox') el
 bind('optScale', 'scale', layout); bind('optSmooth', 'smooth', layout);
 bind('optFps', 'fps', () => { $('fps').hidden = !opts.fps; });
 bind('optTelemetry', 'telemetry', () => { $('telemetry').hidden = !opts.telemetry; });
+bind('optVolume', 'volume', applyVolume); $('optVolume').oninput = () => { opts.volume = Number($('optVolume').value); applyVolume(); saveOpts(); };
+bind('optMute', 'mute', applyVolume); applyVolume();
 bind('optBudget', 'budget'); bind('optClock', 'clock', () => toast('El reloj nuevo se aplica al reiniciar el juego'));
 bind('optLog', 'log', () => { $('log').hidden = !opts.log; logDirty = true; renderLog(); });
 bind('optTrace', 'trace', () => { if (emu) emu.traceApis = opts.trace; });
@@ -205,6 +230,8 @@ function loop() {
   // si pasó mucho desde el cuadro anterior (pestaña oculta, pausa), el reloj del juego no avanza ese hueco
   const tNow = performance.now();
   if (lastLoopT && emu.clockMode === 'real' && tNow - lastLoopT > 250) emu.timeOffset -= tNow - lastLoopT - 16.7;
+  // multijugador local: en la grilla el juego queda detenido (y su reloj también) hasta la largada común
+  if (mpl.frame()) { if (lastLoopT && emu.clockMode === 'real') emu.timeOffset -= Math.min(tNow - lastLoopT, 250); lastLoopT = tNow; if (opts.telemetry) showTelemetry(); rafId = requestAnimationFrame(loop); return; }
   lastLoopT = tNow;
   const sliceMs = Number(opts.budget) || 14;
   const t = performance.now(), i0 = emu.cpu.icount;
@@ -220,6 +247,7 @@ function loop() {
     }
     res = emu.run(500_000);
     if (res.status === 'halted' || res.status === 'exited') break;
+    if (mpl.state.phase === 'grid') break;
   }
   const ms = performance.now() - t;
   if (emu.state.dd.dirty) { emu.state.dd.dirty = false; emu.scanout(); if (!$('loader').hidden && emu.state.dd.frames > 2) { $('loader').hidden = true; $('status').textContent = 'running'; } }
@@ -271,6 +299,9 @@ const lobby = initLobby({
   root: $('roomsBody'), toast,
   onStart: () => { showPanel(null); toast('¡Largada! Reiniciando el juego para todos…', 3500); boot(); },
 });
+
+// ---------- multijugador local (dos pestañas, BroadcastChannel) ----------
+const mpl = initLocalMP({ root: $('localBody'), toast, log, getEmu: () => emu, reboot: () => { showPanel(null); boot(); } });
 
 // ---------- inicio ----------
 (async () => {

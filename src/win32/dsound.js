@@ -13,7 +13,8 @@ function readWfx(emu, p) {
 }
 function position(emu, o) {
   if (!o.playing || !o.size) return o.pos || 0;
-  const bytes = Math.floor((nowMs(emu) - o.startMs) / 1000 * o.fmt.rate * o.fmt.align);
+  // la reproducción avanza a la frecuencia fijada con SetFrequency (si la hay), no a la del formato del búfer
+  const bytes = Math.floor((nowMs(emu) - o.startMs) / 1000 * (o.freq || o.fmt.rate) * o.fmt.align);
   return o.loop ? (o.startPos + bytes) % o.size : Math.min(o.size, o.startPos + bytes);
 }
 function snapshot(emu, o) { return emu.mem.u8.slice(o.mem, o.mem + o.size); }
@@ -31,7 +32,9 @@ const bufImpl = {
   GetFrequency: [1, (emu, o, self, p) => { emu.mem.w32(p, o.freq || o.fmt.rate); return DS_OK; }],
   SetVolume: [1, (emu, o, self, v) => { o.vol = v | 0; emu.host.audio?.setVolume(o.id, o.vol); return DS_OK; }],
   SetPan: [1, (emu, o, self, v) => { o.pan = v | 0; emu.host.audio?.setPan(o.id, o.pan); return DS_OK; }],
-  SetFrequency: [1, (emu, o, self, v) => { o.freq = v; emu.host.audio?.setRate(o.id, v || o.fmt.rate); return DS_OK; }],
+  SetFrequency: [1, (emu, o, self, v) => {
+    if (o.playing && o.size) { o.startPos = position(emu, o); o.startMs = nowMs(emu); } // la posición sigue continua al cambiar la velocidad
+    o.freq = v >>> 0 || 0; emu.host.audio?.setRate(o.id, o.freq || o.fmt.rate); return DS_OK; }],
   Lock: [7, (emu, o, self, off, n, p1, l1, p2, l2, flags) => {
     const m = emu.mem;
     if (!o.size) return 0x88780032; // DSERR_INVALIDCALL en primario
@@ -49,7 +52,7 @@ const bufImpl = {
     o.playing = true; o.loop = !!(flags & 1); o.startMs = nowMs(emu); o.startPos = o.pos || 0;
     emu.state.ds.plays++;
     if (emu.state.ds.plays <= 5) emu.log('DSOUND', `Play buffer#${o.id} ${o.size} bytes ${o.fmt.rate}Hz/${o.fmt.bits}bit/${o.fmt.channels}ch${o.loop ? ' LOOP' : ''}`);
-    emu.host.audio?.play(o.id, snapshot(emu, o), o.fmt, o.loop, o.vol, o.pan, o.startPos);
+    emu.host.audio?.play(o.id, snapshot(emu, o), o.fmt, o.loop, o.vol, o.pan, o.startPos, o.freq || o.fmt.rate);
     return DS_OK;
   }],
   Stop: [0, (emu, o) => { o.pos = position(emu, o); o.playing = false; emu.host.audio?.stop(o.id); return DS_OK; }],
@@ -62,7 +65,7 @@ function makeBuffer(emu, desc, dup) {
   const size = dup ? dup.size : m.r32(desc + 8);
   const pf = dup ? 0 : m.r32(desc + 16);
   const fmt = dup ? dup.fmt : pf ? readWfx(emu, pf) : { tag: 1, channels: 2, rate: 22050, avg: 88200, align: 4, bits: 16 };
-  const o = { id: ++s.nextId, flags, size, fmt, mem: dup ? dup.mem : (size ? m.alloc(size) : 0), vol: 0, pan: 0, pos: 0, playing: false };
+  const o = { id: ++s.nextId, flags, size, fmt, mem: dup ? dup.mem : (size ? m.alloc(size) : 0), vol: 0, pan: 0, pos: 0, playing: false, freq: dup ? dup.freq || 0 : 0 };
   if (fmt.tag !== 1) emu.log('DSOUND', `ADVERTENCIA: formato WAVE tag=${fmt.tag} (no PCM) — necesitará MSACM`);
   return o;
 }

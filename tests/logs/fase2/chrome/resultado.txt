@@ -1,0 +1,12 @@
+OK  0. sesión: una página es J1, la otra J2, en la misma sesión
+OK  1. dos instancias independientes (cada página su propio juego y su propio auto)  (J1 en 74.9,150.5 · J2 en -280.2,-18.5)
+OK  2a. J1 frena (Z), acelera (X) y gira a los dos lados (←/→) con el teclado
+OK  2b. J2 frena (Z), acelera (X) y gira a los dos lados (←/→) con el teclado
+OK  4. J2 aparece delante en la pantalla de J1  (15 unidades adelante, 189 km/h; captura J1_ve_a_J2_1.png)
+OK  3. J1 aparece delante en la pantalla de J2  (12 unidades adelante, 239 km/h; captura J2_ve_a_J1_1.png)
+OK  3/4b. el auto del otro se mueve en cada pantalla  (en 1 s: J2 visto por J1 avanzó 52 unidades; J1 visto por J2 50)
+OK  5a. cada página recibe la vuelta y el puesto del otro
+OK  5b. el juego cuenta la vuelta del auto remoto igual que la del auto real  (J1 ve vuelta 1 / real 1; J2 ve 1 / real 1)
+OK  6. J2 se desconecta y J1 sigue corriendo  (J1 presentó 140 cuadros en 7 s; estado "desconectado"; auto 38 devuelto a la IA: true; insignia "J1 · desconectado")
+OK  7. sin errores de JavaScript
+RESULTADO 11/11

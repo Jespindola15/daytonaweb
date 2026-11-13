@@ -477,6 +477,10 @@ export class BlockCache {
     let fn = this.map.get(eip);
     if (fn) return fn;
     fn = compileBlock(this.emu, eip);
+    // hook de ejecución: se llama antes del bloque; si devuelve false, el bloque no se ejecuta
+    // (el hook debe haber dejado c.eip en el destino que corresponda). Costo cero para bloques sin hook.
+    const hook = this.emu.hooks && this.emu.hooks.get(eip);
+    if (hook) { const inner = fn; fn = (c, r, m) => { if (hook(c) !== false) inner(c, r, m); }; fn.pages = inner.pages; fn.compiled = inner.compiled; fn.fallbacks = inner.fallbacks; }
     this.map.set(eip, fn);
     const fi = eip - this.fastBase; if (fi >= 0 && fi < 0x200000) this.fast[fi] = fn;
     this.stats.compiled++; this.stats.instrs += fn.compiled; this.stats.fallbacks += fn.fallbacks;
@@ -493,5 +497,6 @@ export class BlockCache {
     for (const e of s) { this.map.delete(e); const fi = e - this.fastBase; if (fi >= 0 && fi < 0x200000) this.fast[fi] = undefined; this.stats.invalidated++; }
     this.byPage.delete(page);
   }
+  forget(eip) { this.map.delete(eip); const fi = eip - this.fastBase; if (fi >= 0 && fi < 0x200000) this.fast[fi] = undefined; }
   clear() { for (const p of [...this.byPage.keys()]) this.invalidatePage(p); }
 }

@@ -55,6 +55,7 @@ export class Emulator {
     // Reloj: 'virtual' = derivado de instrucciones ejecutadas (determinista; 90k instr/ms ~ Pentium 90),
     // 'real' = reloj de pared. Con un intérprete más lento que el hardware original, el virtual mantiene
     // las proporciones que el juego espera entre trabajo y tiempo (títulos, demos, timeouts).
+    this.hooks = new Map(); // eip -> fn(cpu) (ver addHook)
     this.jit = new BlockCache(this);
     this.useJit = true; // false = intérprete puro (para comparar)
     this.clockMode = 'virtual';
@@ -68,6 +69,12 @@ export class Emulator {
   // Emula el vblank de 60 Hz (como cnc-ddraw con maxgameticks=0 o DirectDraw con DDFLIP_WAIT):
   // Flip espera el próximo tick de 1/60 s. Reloj virtual: el reloj salta; reloj real: el host deja de
   // ejecutar el juego hasta ese instante (waitUntil).
+  // Hook de ejecución en `eip` (debe ser inicio de bloque, p.ej. la entrada de una función).
+  // fn(cpu) se ejecuta antes de la instrucción; si devuelve false, no se ejecuta el bloque (fn fija cpu.eip).
+  addHook(eip, fn) { this.hooks.set(eip >>> 0, fn); this.jit.forget(eip >>> 0); }
+  removeHook(eip) { this.hooks.delete(eip >>> 0); this.jit.forget(eip >>> 0); }
+  stepInterp() { const h = this.hooks.size && this.hooks.get(this.cpu.eip); if (h && h(this.cpu) === false) return; this.cpu.step(); }
+
   // Limitador (no grilla): sólo espera si el cuadro llegó antes de 1/60 s desde el anterior.
   waitVBlank() {
     if (!this.vsyncHz) return;
@@ -317,7 +324,7 @@ export class Emulator {
       while (c.eip !== HOST_RETURN) {
         if (c.eip >= THUNK_BASE && c.eip < THUNK_END) this.dispatchThunk(c.eip);
         else if (this.useJit) this.jit.get(c.eip)(c, c.r, this.mem);
-        else c.step();
+        else this.stepInterp();
         if (++n > limit) throw new HaltSignal(`Callback ${hex(addr)} superó ${limit} instrucciones`, {});
       }
     } finally { this.callDepth--; }
@@ -358,7 +365,7 @@ export class Emulator {
           if (this.yieldRequested) return { status: 'yield' };
         } else {
           const i0 = c.icount;
-          if (this.useJit) this.jit.get(eip)(c, c.r, this.mem); else c.step();
+          if (this.useJit) this.jit.get(eip)(c, c.r, this.mem); else this.stepInterp();
           if (this.profile) { const k = this.profile.get(eip) || 0; this.profile.set(eip, k + (c.icount - i0) / 256); }
           if (this.traceFrom && c.icount >= this.traceFrom && !this.traceStarted) { this.traceStarted = true; this.traceApis = true; this.apiLogged = 0; this.log('TRACE', `traza de APIs activada en la instrucción ${c.icount}`); }
         }
