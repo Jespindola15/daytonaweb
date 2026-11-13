@@ -168,7 +168,9 @@ const surfImpl = {
     } else if (o.attached) { const b = s.objs.get(o.attached); const t = o.mem; o.mem = b.mem; b.mem = t; }
     o.stats.flips++;
     s.lastPresentCause = 'Flip';
-    present(emu, o); return DD_OK;
+    present(emu, o);
+    emu.waitVBlank();
+    return DD_OK;
   }],
   GetAttachedSurface: [2, (emu, o, self, caps, pp) => {
     const want = emu.mem.r32(caps);
@@ -289,7 +291,7 @@ function ddImpl(v2) {
     }],
     GetAvailableVidMem: [3, (emu, o, self, caps, total, free) => { if (total) emu.mem.w32(total, 8 << 20); if (free) emu.mem.w32(free, 8 << 20); return DD_OK; }],
     GetMonitorFrequency: [1, (emu, o, self, p) => { emu.mem.w32(p, 60); return DD_OK; }],
-    WaitForVerticalBlank: [2, (emu) => { emu.yieldRequested = true; return DD_OK; }],
+    WaitForVerticalBlank: [2, (emu) => { emu.waitVBlank(); return DD_OK; }],
     GetVerticalBlankStatus: [1, (emu, o, self, p) => { emu.mem.w32(p, 1); return DD_OK; }],
     FlipToGDISurface: [0, () => DD_OK],
     CreateSurface: [3, (emu, o, self, desc, pp) => {

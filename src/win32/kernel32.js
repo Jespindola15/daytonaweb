@@ -156,7 +156,7 @@ const K = {
   WaitForSingleObject: api(2, (emu) => { emu.note('(sin hilos reales: devuelve WAIT_OBJECT_0)'); return 0; }),
   CreateMutexA: api(3, (emu) => emu.newHandle({ type: 'mutex' })),
   ReleaseMutex: api(1, () => 1),
-  Sleep: api(1, (emu, ms) => { emu.sleepMs = ms; emu.timeOffset += Math.max(ms, 1); if (ms >= 10 && emu.clockMode === 'real') emu.yieldRequested = true; }, { quiet: true }),
+  Sleep: api(1, (emu, ms) => { emu.sleepMs = ms; if (emu.clockMode === 'virtual') emu.timeOffset += Math.max(ms, 1); else if (ms >= 10) emu.yieldRequested = true; }, { quiet: true }),
   // CreateThread queda pendiente a propósito: requiere planificador cooperativo
   // ---- tiempo ----
   GetTickCount: api(0, (emu) => Math.floor(now(emu)) >>> 0, { quiet: true }),

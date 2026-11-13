@@ -11,6 +11,7 @@
 <main id="stage">
   <canvas id="screen" width="640" height="480" tabindex="0" aria-label="Pantalla del juego"></canvas>
   <div id="fps" hidden></div>
+  <pre id="telemetry" hidden></pre>
 </main>
 
 <!-- barra flotante (se oculta sola mientras jugás) -->
@@ -55,13 +56,14 @@
         <select id="optScale"><option value="fit">Ajustar a la ventana</option><option value="int">Múltiplo entero (nítido)</option><option value="native">Tamaño original</option></select></label>
       <label class="check"><input type="checkbox" id="optSmooth"> Suavizar píxeles</label>
       <label class="check"><input type="checkbox" id="optFps"> Mostrar FPS</label>
+      <label class="check"><input type="checkbox" id="optTelemetry"> Telemetría del auto (velocidad, vuelta, posición, X/Y/Z)</label>
     </section>
     <section>
       <h3>Rendimiento</h3>
       <label class="field">CPU por cuadro del navegador
         <select id="optBudget"><option value="8">8 ms (más fluido el navegador)</option><option value="14">14 ms (equilibrado)</option><option value="24">24 ms (más rápido el juego)</option></select></label>
       <label class="field">Reloj del juego
-        <select id="optClock"><option value="virtual">Virtual (ritmo de un Pentium 90, recomendado)</option><option value="real">Real</option></select></label>
+        <select id="optClock"><option value="real">Real (velocidad original, recomendado)</option><option value="virtual">Virtual determinista (para pruebas)</option></select></label>
       <p class="hint" id="perfInfo"></p>
     </section>
     <section>

@@ -1,15 +1,18 @@
 // main.js — frontend: sólo el juego en pantalla; ajustes y salas en paneles laterales.
 import { Emulator } from '../src/emulator.js';
 import { initLobby } from './lobby.js';
+import { readAllCars, readCar, writeCarPose, aheadOf, CARS, FIELD } from '../src/game/daytona.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('screen'), ctx2d = canvas.getContext('2d');
 const qs = new URLSearchParams(location.search);
 
 // ---------- ajustes persistentes ----------
-const DEFAULTS = { scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'virtual', log: false, trace: false };
+const DEFAULTS = { v: 2, telemetry: false, scale: 'fit', smooth: false, fps: false, budget: '14', clock: 'real', log: false, trace: false };
 let opts = { ...DEFAULTS };
 try { opts = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('daytona.opts') || '{}') }; } catch {}
+// v2: el reloj real pasa a ser el predeterminado (con el JIT, el virtual aceleraba el juego)
+if (opts.v !== 2) { opts.clock = 'real'; opts.v = 2; }
 const saveOpts = () => { try { localStorage.setItem('daytona.opts', JSON.stringify(opts)); } catch {} };
 
 // ---------- registro (en memoria; visible sólo en Ajustes > Diagnóstico) ----------
@@ -122,10 +125,11 @@ $('btnSaveLog').onclick = saveLog; $('btnSaveLog2').onclick = saveLog;
 const bind = (id, key, fn) => { const el = $(id); if (el.type === 'checkbox') el.checked = !!opts[key]; else el.value = opts[key]; el.onchange = () => { opts[key] = el.type === 'checkbox' ? el.checked : el.value; saveOpts(); fn?.(); }; };
 bind('optScale', 'scale', layout); bind('optSmooth', 'smooth', layout);
 bind('optFps', 'fps', () => { $('fps').hidden = !opts.fps; });
+bind('optTelemetry', 'telemetry', () => { $('telemetry').hidden = !opts.telemetry; });
 bind('optBudget', 'budget'); bind('optClock', 'clock', () => toast('El reloj nuevo se aplica al reiniciar el juego'));
 bind('optLog', 'log', () => { $('log').hidden = !opts.log; logDirty = true; renderLog(); });
 bind('optTrace', 'trace', () => { if (emu) emu.traceApis = opts.trace; });
-$('fps').hidden = !opts.fps; $('log').hidden = !opts.log; layout();
+$('fps').hidden = !opts.fps; $('telemetry').hidden = !opts.telemetry; $('log').hidden = !opts.log; layout();
 
 // ---------- carga de archivos ----------
 let files = new Map();
@@ -191,20 +195,37 @@ function boot() {
   try { emu.loadMain(emu.vfs.find(key).data, key.split('\\').pop().toUpperCase()); }
   catch (e) { return fail(`No se pudo cargar ${key}: ${e.message}`); }
   setLoader('Arrancando Daytona USA…', 1);
-  running = true; fpsT = performance.now(); lastFrames = 0;
+  running = true; fpsT = performance.now(); lastFrames = 0; lastLoopT = 0;
   window.__emu = () => emu;
   rafId = requestAnimationFrame(loop);
 }
+let lastLoopT = 0;
 function loop() {
   if (!running) return;
+  // si pasó mucho desde el cuadro anterior (pestaña oculta, pausa), el reloj del juego no avanza ese hueco
+  const tNow = performance.now();
+  if (lastLoopT && emu.clockMode === 'real' && tNow - lastLoopT > 250) emu.timeOffset -= tNow - lastLoopT - 16.7;
+  lastLoopT = tNow;
   const sliceMs = Number(opts.budget) || 14;
   const t = performance.now(), i0 = emu.cpu.icount;
   let res;
-  do { res = emu.run(500_000); } while (res.status !== 'halted' && res.status !== 'exited' && performance.now() - t < sliceMs);
+  res = { status: 'waiting' };
+  // vblank: si el juego está esperando el próximo tick de 60 Hz, no se ejecuta hasta entonces
+  while (performance.now() - t < sliceMs) {
+    if (emu.clockMode === 'real' && emu.waitUntil > emu.nowMs()) {
+      // espera de vblank: si entra en lo que queda del cuadro del navegador, se espera acá mismo
+      const target = performance.now() + (emu.waitUntil - emu.nowMs());
+      if (target - t > sliceMs) break;
+      while (performance.now() < target) { /* espera activa corta (< 16 ms) */ }
+    }
+    res = emu.run(500_000);
+    if (res.status === 'halted' || res.status === 'exited') break;
+  }
   const ms = performance.now() - t;
-  if (emu.state.dd.dirty) { emu.state.dd.dirty = false; emu.scanout(); if (!$('loader').hidden && emu.state.dd.frames > 2) $('loader').hidden = true; }
-  const mips = (emu.cpu.icount - i0) / ms / 1000; mipsAvg = mipsAvg ? mipsAvg * 0.9 + mips * 0.1 : mips;
+  if (emu.state.dd.dirty) { emu.state.dd.dirty = false; emu.scanout(); if (!$('loader').hidden && emu.state.dd.frames > 2) { $('loader').hidden = true; $('status').textContent = 'running'; } }
+  const mips = (emu.cpu.icount - i0) / Math.max(ms, 0.01) / 1000; mipsAvg = mipsAvg ? mipsAvg * 0.9 + mips * 0.1 : mips;
   const now = performance.now();
+  if (opts.telemetry) showTelemetry();
   if (now - fpsT > 1000) { fps = (emu.state.dd.frames - lastFrames) * 1000 / (now - fpsT); lastFrames = emu.state.dd.frames; fpsT = now; if (opts.fps) $('fps').textContent = `${fps.toFixed(0)} fps · ${mipsAvg.toFixed(0)} MIPS`; $('perfInfo').textContent = `Ahora: ${fps.toFixed(1)} fps del juego, ${mipsAvg.toFixed(0)} millones de instrucciones x86/s (JIT).`; }
   window.__stats = { icount: emu.cpu.icount, frames: emu.state.dd.frames, mips: mipsAvg, fps };
   if (opts.log) renderLog();
@@ -212,6 +233,23 @@ function loop() {
   if (res.status === 'exited') { running = false; $('pauseTitle').textContent = 'El juego se cerró'; $('pauseText').textContent = `Código de salida ${res.code}.`; $('btnResume').textContent = 'Volver a iniciar'; $('btnResume').onclick = () => { $('btnResume').onclick = () => togglePause(false); $('btnResume').textContent = 'Seguir'; boot(); }; $('paused').hidden = false; return; }
   rafId = requestAnimationFrame(loop);
 }
+// Telemetría del auto del jugador (lectura directa de la memoria del juego)
+function showTelemetry() {
+  const el = $('telemetry'); el.hidden = false;
+  try {
+    const c = readCar(emu.mem, 0);
+    el.textContent = `auto 0 · ${c.speedKmh} km/h (${c.speedMph} mph) · vuelta ${c.lap} · puesto ${c.position}/40 · seg ${c.segment}\nX ${c.x.toFixed(1)}  Y ${c.y.toFixed(1)}  Z ${c.z.toFixed(1)}  rumbo ${c.yaw.toFixed(1)}°`;
+  } catch { el.textContent = 'telemetría no disponible'; }
+}
+// Acceso a los autos desde la consola del navegador (Fase 1 del multijugador)
+window.daytona = {
+  CARS, FIELD,
+  cars: () => readAllCars(emu.mem),
+  car: (i = 0) => readCar(emu.mem, i),
+  move: (i, pose) => writeCarPose(emu.mem, i, pose),
+  putAhead: (i, dist = 16) => { const p = readCar(emu.mem, 0); const a = aheadOf(p, dist); writeCarPose(emu.mem, i, { x: a.x, z: a.z, yaw: p.yaw }); },
+};
+
 function showHalt(report) {
   haltShown = true; $('loader').hidden = true;
   $('pauseTitle').textContent = 'El emulador se detuvo';

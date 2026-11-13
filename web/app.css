@@ -79,3 +79,5 @@ kbd { background: var(--panel2); border: 1px solid var(--line); border-bottom-wi
 /* ---------- toast ---------- */
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(30px); background: var(--panel); border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; opacity: 0; transition: .25s; z-index: 40; pointer-events: none; }
 #toast.show { opacity: 1; transform: translateX(-50%); }
+
+#telemetry { position: fixed; left: 12px; bottom: 10px; margin: 0; font: 12px/1.4 ui-monospace, monospace; color: #9ef0c5; background: rgba(0,0,0,.6); padding: 5px 8px; border-radius: 6px; pointer-events: none; }

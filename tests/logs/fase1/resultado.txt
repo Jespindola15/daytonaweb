@@ -1,0 +1,11 @@
+node tests/cars_test.mjs <juego> tests/logs/fase1
+OK  se leen 40 autos con índices 0..39
+OK  posiciones en carrera = permutación de 1..40
+OK  vueltas (0 antes de cruzar la largada) y velocidades plausibles
+OK  el rival quedó delante del jugador  (distancia 16.0 unidades)
+OK  mismo instante en las dos corridas  (cuadro 531)
+OK  el auto movido se ve en pantalla (la imagen cambia en la zona central)  (19637 píxeles distintos, centro en 428,184)
+OK  la carrera sigue: se presentaron cuadros después  (163 cuadros en 15 s)
+OK  el rival sigue corriendo solo después de soltarlo  (265 km/h, segmento 358, vuelta 0)
+OK  las posiciones siguen siendo una permutación válida
+RESULTADO 9/9

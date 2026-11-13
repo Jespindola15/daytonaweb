@@ -1,0 +1,9 @@
+Prueba en Chrome 153 (Playwright), reloj real, teclado enviado a la página:
+carrera en Chrome tras 46 s reales (Enter x6 + acelerador X)
+jugador: {"index":0,"x":227.7,"y":1.97,"z":-144.87,"yaw":-48.5,"pitch":-2.68,"roll":-7.78,"travelDir":-48.5,"speedKmh":123,"speedMph":76,"segment":98,"lap":0,"position":40}
+posiciones válidas: true
+telemetría en pantalla: auto 0 · 111 km/h (69 mph) · vuelta 0 · puesto 40/40 · seg 98 | X 231.2  Y 1.7  Z -141.2  rumbo -42.3°
+rumbo antes -42.3°, después de girar 1,5 s a la izquierda 47.3°
+distancia jugador–rival 10 tras moverlo: 20.9
+5 s después, rival 10: {"kmh":262,"seg":350,"pos":38}
+ERRORES JS: ninguno

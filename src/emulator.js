@@ -60,7 +60,23 @@ export class Emulator {
     this.clockMode = 'virtual';
     this.instrPerMs = 90000;
     this.timeOffset = 0;
+    this.vsyncHz = 60; // 0 = sin límite
+    this.waitUntil = 0;
     for (const m of Object.values(MODULES)) if (m.__init) m.__init(this);
+  }
+
+  // Emula el vblank de 60 Hz (como cnc-ddraw con maxgameticks=0 o DirectDraw con DDFLIP_WAIT):
+  // Flip espera el próximo tick de 1/60 s. Reloj virtual: el reloj salta; reloj real: el host deja de
+  // ejecutar el juego hasta ese instante (waitUntil).
+  // Limitador (no grilla): sólo espera si el cuadro llegó antes de 1/60 s desde el anterior.
+  waitVBlank() {
+    if (!this.vsyncHz) return;
+    const period = 1000 / this.vsyncHz, now = this.nowMs();
+    const target = Math.max(now, (this.lastVBlank || 0) + period);
+    this.lastVBlank = target;
+    if (target - now < 0.01) return;
+    if (this.clockMode === 'virtual') this.timeOffset += target - now;
+    else { this.waitUntil = target; this.yieldRequested = true; }
   }
 
   nowMs() {

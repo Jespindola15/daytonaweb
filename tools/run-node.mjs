@@ -50,16 +50,17 @@ try { emu.loadMain(new Uint8Array(fs.readFileSync(exe)), path.basename(exe).toUp
 catch (e) { log(`[FATAL] carga: ${e.message}`); finish(); process.exit(2); }
 
 // --keys "800000000:0d:1,830000000:0d:0"  (instrucción:VK hex:1=pulsa/0=suelta)
-const keySchedule = (opt('--keys', '') || '').split(',').filter(Boolean).map((t) => { const [at, vk, d] = t.split(':'); return { at: Number(at), vk: parseInt(vk, 16), down: d === '1' }; });
+// "1234ms:0d:1" = en milisegundos del reloj del juego; sin "ms" = en instrucciones
+const keySchedule = (opt('--keys', '') || '').split(',').filter(Boolean).map((t) => { const [at, vk, d] = t.split(':'); return at.endsWith('ms') ? { ms: Number(at.slice(0, -2)), vk: parseInt(vk, 16), down: d === '1' } : { at: Number(at), vk: parseInt(vk, 16), down: d === '1' }; });
 let res = { status: maxInstr === 0 ? 'analizado (sin ejecutar)' : 'running' }, slices = 0;
 while (emu.cpu.icount < maxInstr) {
-  for (const k of keySchedule) if (!k.done && emu.cpu.icount >= k.at) { k.done = true; emu.keyEvent(k.vk, k.down); log(`[TECLA] ${k.down ? 'pulsa' : 'suelta'} VK 0x${k.vk.toString(16)} en instr=${emu.cpu.icount}`); }
-  res = emu.run(Math.min(5_000_000, maxInstr - emu.cpu.icount));
+  for (const k of keySchedule) if (!k.done && (k.ms !== undefined ? emu.nowMs() - 10000 >= k.ms : emu.cpu.icount >= k.at)) { k.done = true; emu.keyEvent(k.vk, k.down); log(`[TECLA] ${k.down ? 'pulsa' : 'suelta'} VK 0x${k.vk.toString(16)} en instr=${emu.cpu.icount}`); }
+  res = emu.run(Math.min(Number(opt('--slice', 5_000_000)), maxInstr - emu.cpu.icount));
   slices++;
   if (emu.state.dd.dirty) { emu.state.dd.dirty = false; emu.scanout(); }
   if (opt('--every') && slices % Number(opt('--every')) === 0) {
     const d = emu.state.dd; const nz = lastFrame ? countNonBlack(lastFrame.rgba) : 0;
-    log(`[PROGRESO] t=${((Date.now() - t0) / 1000).toFixed(2)}s instr=${emu.cpu.icount} frames_juego=${d.frames} pixeles_no_negros_en_pantalla=${nz} blts=${d.bltCount || 0} gdi=${JSON.stringify(emu.state.gdi?.stats || {})}`);
+    log(`[PROGRESO] t=${((Date.now() - t0) / 1000).toFixed(2)}s tj=${((emu.nowMs() - 10000) / 1000).toFixed(3)}s instr=${emu.cpu.icount} frames_juego=${d.frames} pixeles_no_negros_en_pantalla=${nz} blts=${d.bltCount || 0} gdi=${JSON.stringify(emu.state.gdi?.stats || {})}`);
     if (framePath && lastFrame && nz) fs.writeFileSync(framePath.replace(/\.png$/, `_${emu.cpu.icount}.png`), png(lastFrame.rgba, lastFrame.w, lastFrame.h));
   }
   if (res.status === 'halted' || res.status === 'exited') break;
